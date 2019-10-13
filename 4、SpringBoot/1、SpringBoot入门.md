@@ -9,13 +9,22 @@
 
 ## 2、SpringBoot的核心功能
 
-* 起步依赖
+### 起步依赖
 
-  起步依赖本质上是一个Maven项目对象模型(Project Object Model, POM) ，定义了对其他库的传递依赖，这些东西加在一起就支持某项功能。
+起步依赖本质上是一个Maven项目对象模型(Project Object Model, POM) ，定义了对其他库的传递依赖，这些东西加在一起就支持某项功能。
 
-* 自动配置
+### 自动配置
 
-  SpringBoot的自动配置是一个运行时（更准确地说，是应用程序启动时）的过程，考虑了众多因素，才决定Spring配置应该用哪个。该是Spring自动完成的。
+SpringBoot的自动配置是一个运行时（更准确地说，是应用程序启动时）的过程，考虑了众多因素，才决定Spring配置应该用哪个。该是Spring自动完成的。
+
+SpringBoot在配置组件的时候，先看容器中有没有自己配置的(@Bean、@Component)如果有，就如果有，就使用自己的配置，如果没有，使用自动配置；有些组件可以有多配置 (如：ViewResolver)，将用户配置和自己默认配置组合起来
+
+* pring-boot-autoconfigure-2.1.9.RELEASE.jar  自动配置的类都在这个包下
+
+```
+xxxxAutoConfiguration: 帮助我们给容器自动配置组件
+xxxxProperties: 配置类的封装配置文件的内容
+```
 
 # 二、SpringBoot的快速入门
 
@@ -241,7 +250,47 @@ public class Quick3Controller {
 }
 ```
 
-# 五、SpringBoot和其它技术的整合
+# 五、SpringBoot扩展SpringMVC的功能
+
+**编写一个配置类，是WebMvcConfigurerAdapter类型，不能标注@EnableWebMvc**
+
+```java
+/**
+ * 配置类，MyMvcConfig
+ * 通过这个配置类，可以扩展SpringMVC的功能，
+ */
+@Configuration
+public class MyMvcConfig implements WebMvcConfigurer {
+
+    /**
+     * 扩展SpringMVC的视图映射
+     * @param registry
+     */
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        // 访问 /atguigu，时跳转到 success.html页面，相当于以下配置
+        //    <mvc:view-controller path="/hello" view-name="success"/>
+        //    <mvc:interceptors>
+        //        <mvc:interceptor>
+        //            <mvc:mapping path="/hello"/>
+        //           <bean></bean>
+        //        </mvc:interceptor>
+        //    </mvc:interceptors>
+        registry.addViewController("/atguigu").setViewName("success");
+    }
+
+    /**
+     * 扩展SpringMVC的拦截器
+     * @param registry
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+
+    }
+}
+```
+
+# 六、SpringBoot和其它技术的整合
 
 ## 1、SpringBoot整合Mybatis
 
@@ -395,5 +444,79 @@ public class RedisTest {
         System.out.println(userListJson);
     }
 }
+```
+
+# 七、错误页面
+
+* 网页面访问，是一个页面
+* 其它是json数据
+
+## 1、自定义错误页面
+
+>  默认在创建classpath:resources/error/404.html文件，就可以响应404的状态码错误！
+
+>创建classpath:resources/error/4xx.html文件，就可以响应4xx的错误页面
+
+> 创建classpath:resources/error/5xx.html文件，就可以响应5xx的错误页面
+
+页面上的数据
+
+* timestamp  时间
+* status 状态码
+* error 错误提示
+* exception 异常对象
+* message  异常消息
+* errors JSR303数据校验错误
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>4xx页面</title>
+</head>
+<body>
+    <h1>自定义4xx页面</h1>
+    <p>status:[[${status}]]</p>
+    <p>timestamp:[[${timestamp}]]</p>
+    <p>message:[[${message}]]</p>
+</body>
+</html>
+```
+
+## 2、定制错误的json数据
+
+```java
+/**
+ * 响应json的异常类
+ */
+@ControllerAdvice
+public class MyExceptionHandlerController {
+
+    /**
+     * 处理所有异常
+     * @return
+     */
+//    @ExceptionHandler(Exception.class)
+//    @ResponseBody
+//    public Map<String, Object> handleException(Exception e){
+//        Map<String, Object> map = new HashMap<>();
+//        map.put("code", "user.notexist");
+//        map.put("message", e.getMessage());
+//        return map;
+//    }
+
+    @ExceptionHandler(Exception.class)
+    public String handleException(Exception e, HttpServletRequest request){
+        Map<String, Object> map = new HashMap<>();
+        // 传入自定义状态码，不然就是200了
+        request.setAttribute("javax.servlet.error.status_code", 500);
+        map.put("code", "user.notexist");
+        map.put("message", "用户出错了");
+        return "forward:/error";
+    }
+
+}
+
 ```
 
