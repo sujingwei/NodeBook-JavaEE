@@ -1,4 +1,4 @@
-# Redis高阶操作
+# Redis 高阶操作
 
 ## 一、持久化
 
@@ -184,3 +184,184 @@ master_port:6381
 * 使每个哨兵与其对应的节点的网络环境相同或相近
 
 * 设置quorm的值为 N/2 + 1，这样使得只有当大部分哨兵节点同意后才会进行故障恢复
+
+## 四、集群
+
+### 1、部署
+
+分别配置6380、6381、6382、6383、6384、6385六台服务器，配置文件如下：
+
+```shell
+bind 127.0.0.1
+port 6380
+pidfile /var/run/redis_6380.pid
+dir /home/sjw/works/redis/cluster/6380
+cluster-enabled yes
+cluster-config-file nodes-6380.conf
+cluster-node-timeout 15000
+cluster-replica-validity-factor 10
+cluster-migration-barrier 1
+cluster-require-full-coverage yes
+cluster-replica-no-failover no
+```
+
+加入同一个集群中：
+
+> 使用 <span style="background:blue;color:#FFF;">redis-cli</span> 命令就可以，5.0.4之前的redis使用 <span style="background:blue;color:#FFF;">redis-trib.rb</span> 工具（在安装目录上找）
+>
+> ./redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 127.0.0.1:6383 127.0.0.1:6384 127.0.0.1:6385 --cluster-replicas 1 
+>
+>  --cluster-replicas 1 指定每一个主数据库，都必需包含一个从数据库
+
+```shell
+./redis-cli --cluster create 127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382 127.0.0.1:6383 127.0.0.1:6384 127.0.0.1:6385 --cluster-replicas 1 
+>>> Performing hash slots allocation on 6 nodes...
+Master[0] -> Slots 0 - 5460
+Master[1] -> Slots 5461 - 10922
+Master[2] -> Slots 10923 - 16383
+Adding replica 127.0.0.1:6384 to 127.0.0.1:6380
+Adding replica 127.0.0.1:6385 to 127.0.0.1:6381
+Adding replica 127.0.0.1:6383 to 127.0.0.1:6382
+>>> Trying to optimize slaves allocation for anti-affinity
+[WARNING] Some slaves are in the same host as their master
+M: f85107080b5210c7728ba84a773e5d29fedd91db 127.0.0.1:6380
+   slots:[0-5460] (5461 slots) master
+M: 1d534a715ef2ee97ecb226b5ed9aec0008f47a7c 127.0.0.1:6381
+   slots:[5461-10922] (5462 slots) master
+M: 6df2f07b411f3a05b1e6be9165860f9fb2dcbb7d 127.0.0.1:6382
+   slots:[10923-16383] (5461 slots) master
+S: c219a6a3dcc65d69996c3045a0863e56d526986f 127.0.0.1:6383
+   replicates 6df2f07b411f3a05b1e6be9165860f9fb2dcbb7d
+S: 443a3185193352fae1f5a77df9161052a8e33ef6 127.0.0.1:6384
+   replicates f85107080b5210c7728ba84a773e5d29fedd91db
+S: 42708fadf266e54855eaa806f06f5f86bcdccb86 127.0.0.1:6385
+   replicates 1d534a715ef2ee97ecb226b5ed9aec0008f47a7c
+Can I set the above configuration? (type 'yes' to accept): yes  # 如果上面配置没有问题：yes
+>>> Nodes configuration updated
+>>> Assign a different config epoch to each node
+>>> Sending CLUSTER MEET messages to join the cluster
+Waiting for the cluster to join
+........
+>>> Performing Cluster Check (using node 127.0.0.1:6380)
+M: f85107080b5210c7728ba84a773e5d29fedd91db 127.0.0.1:6380
+   slots:[0-5460] (5461 slots) master
+   1 additional replica(s)
+M: 6df2f07b411f3a05b1e6be9165860f9fb2dcbb7d 127.0.0.1:6382
+   slots:[10923-16383] (5461 slots) master
+   1 additional replica(s)
+S: 443a3185193352fae1f5a77df9161052a8e33ef6 127.0.0.1:6384
+   slots: (0 slots) slave
+   replicates f85107080b5210c7728ba84a773e5d29fedd91db
+M: 1d534a715ef2ee97ecb226b5ed9aec0008f47a7c 127.0.0.1:6381
+   slots:[5461-10922] (5462 slots) master
+   1 additional replica(s)
+S: 42708fadf266e54855eaa806f06f5f86bcdccb86 127.0.0.1:6385
+   slots: (0 slots) slave
+   replicates 1d534a715ef2ee97ecb226b5ed9aec0008f47a7c
+S: c219a6a3dcc65d69996c3045a0863e56d526986f 127.0.0.1:6383
+   slots: (0 slots) slave
+   replicates 6df2f07b411f3a05b1e6be9165860f9fb2dcbb7d
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+```
+
+### 2、槽位
+
+新的节点加入集群后有两种选择，要么使用cluster replicate命令复制每个主数据库来以从数据库的形式运行；要么向集群申请分配插槽(slot)来以主数据库的形式运行。
+
+在一个集群中，所有臽会被分配给16384个插槽，每个主数据库会负责处理其中的一部分插槽。
+
+查看插槽分配情况：
+
+> CLUSTER SLOTS
+
+```shell
+127.0.0.1:6380> cluster slots
+1) 1) (integer) 10923
+   2) (integer) 16383
+   3) 1) "127.0.0.1"
+      2) (integer) 6382
+      3) "6df2f07b411f3a05b1e6be9165860f9fb2dcbb7d"
+   4) 1) "127.0.0.1"
+      2) (integer) 6383
+      3) "c219a6a3dcc65d69996c3045a0863e56d526986f"
+2) 1) (integer) 0
+   2) (integer) 5460
+   3) 1) "127.0.0.1"
+      2) (integer) 6380
+      3) "f85107080b5210c7728ba84a773e5d29fedd91db"
+   4) 1) "127.0.0.1"
+      2) (integer) 6384
+      3) "443a3185193352fae1f5a77df9161052a8e33ef6"
+3) 1) (integer) 5461
+   2) (integer) 10922
+   3) 1) "127.0.0.1"
+      2) (integer) 6381
+      3) "1d534a715ef2ee97ecb226b5ed9aec0008f47a7c"
+   4) 1) "127.0.0.1"
+      2) (integer) 6385
+      3) "42708fadf266e54855eaa806f06f5f86bcdccb86"
+```
+
+为了直观点，我使用表格来展示，并且不展示从库：
+
+| SLOT          | IP:PORT (Master) | ID                                       |
+| ------------- | ---------------- | ---------------------------------------- |
+| 0 - 5460      | 127.0.0.1:6380   | f85107080b5210c7728ba84a773e5d29fedd91db |
+| 5461 - 10922  | 127.0.0.1:6381   | 1d534a715ef2ee97ecb226b5ed9aec0008f47a7c |
+| 10923 - 16383 | 127.0.0.1:6382   | 6df2f07b411f3a05b1e6be9165860f9fb2dcbb7d |
+
+### 3、节点管理
+
+#### 1) 添加主节点
+
+```shell
+# 127.0.0.1:6386 为新节点信息
+# 127.0.0.1:6380 为集群中任意节点
+./redis-cli --cluster add-node 127.0.0.1:6386 127.0.0.1:6380
+```
+
+此时127.0.0.1:6386已成为集群中的一份子，但它还没有包含任何插槽(slot)，这个新节点不会被选中。分配插槽(slot)：
+
+```shell
+# 127.0.0.1:6381为，集群中任选一节点的信息
+./redis-cli --cluster reshard 127.0.0.1:6381
+
+# 以下为关键步骤说明
+How many slots do you want to move (from 1 to 16384)? # 需要移动多少个插槽
+Source node #1: all/done all在所有节点中分配，done在指定节点中分配
+```
+
+添加主节点完成，查看集群信息（cluster nodes），我使用表格方式展示：
+
+| IP & PORT            | 主 / 从 | 槽位                         |
+| -------------------- | ------- | ---------------------------- |
+| 127.0.0.1:6384@16384 | slave   | --                           |
+| 127.0.0.1:6383@16383 | slave   | --                           |
+| 127.0.0.1:6381@16381 | master  | 6827-10922                   |
+| 127.0.0.1:6382@16382 | master  | 12288-16383                  |
+| 127.0.0.1:6380@16380 | master  | 1365-5460                    |
+| 127.0.0.1:6386@16386 | master  | 0-1364 5461-6826 10923-12287 |
+| 127.0.0.1:6385@16385 | slave   | --                           |
+
+从上面信息可知，127.0.0.1:6386节点的槽位是由6380、6381、6382三个节点分配的。
+
+#### 2) 添加从节点
+
+```shell
+# 这一步和添加主节点是一样的
+# 127.0.0.1:6387 为新节点信息
+# 127.0.0.1:6380 为集群中任意节点
+./redis-cli --cluster add-node 127.0.0.1:6387 127.0.0.1:6380
+```
+
+再使用`CLUSTER REPLICATE`命令改变一个从节点的主节点。
+
+```shell
+# 让当前节点的主节点为：9e7507689ea905bd4b6adf57b7078c4fc0b99755(127.0.0.1:6386)
+127.0.0.1:6387> cluster replicate 9e7507689ea905bd4b6adf57b7078c4fc0b99755
+OK
+```
+
