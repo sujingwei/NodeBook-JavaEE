@@ -376,7 +376,7 @@ POST /nba/_search
 
 ### 3）查出火箭队有多少名球员（不属于聚合）
 
-```
+```js
 POST /nba/_count
 {
   "query": {
@@ -708,7 +708,7 @@ POST /nba/_search
 
 ### 3）每支球队按该队所有球员的平均年龄进行分组排序(通过分组指标值)
 
-```
+```js
 POST /nba/_search
 {
   "aggs": {
@@ -765,3 +765,80 @@ POST /nba/_search
 ### 5）Range Aggregation 范围分组聚合
 
 * NBA球员年龄按照20,20-35,35,这样分组
+
+```js
+POST /nba/_search
+{
+  "aggs": {
+    "birthday_aggs": {
+      "date_range": {
+        "field": "birthDayStr",
+        "format": "MM-yyyy",
+        "ranges":[
+          {"to":"01-1989"},
+          {"from": "01-1989", "to":"01-1999"},
+          {"from": "01-1999", "to":"01-2009"},
+          {"from":"01-2009"}
+        ]
+      }
+    }
+  },
+  "size": 0
+}
+```
+
+*  年龄的柱状图
+
+```js
+POST /nba/_search
+{
+  "aggs": {
+    "birthday_aggs": {
+      "date_histogram": {
+        "field": "birthDayStr",
+        "format": "yyyy",
+        "calendar_interval": "year"
+      }
+    }
+  },
+  "size": 0
+}
+```
+
+# 七、Query String 查询
+
+如果熟悉lucene的查询语法，我公交哥以直接用lucene查询语法写一个查询串进行查询，Es接到请求后，通过查询解析器，解析查询串生成对应的查询。
+
+```js
+POST /nba/_search
+{
+	"query": {
+		"query_string": {
+			"default_field": "displayNameEn",
+			"query": "james OR curry"  // 名字包含 james 或 curry 的球员
+		}
+	}
+}
+
+
+POST /nba/_search
+{
+  "query": {
+    "query_string": {
+      "default_field": "displayNameEn",
+      "query": "james AND harden"   // 名字包含 james 和 harden 的球员
+    }
+  }
+}
+
+POST /nba/_search
+{
+  "query": {
+    "query_string": {                      // 多个字段匹配
+      "fields": ["displayNameEn", "teamNameEn"],
+      "query": "james AND Rockets"
+    }
+  }
+}
+```
+
