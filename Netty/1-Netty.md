@@ -272,7 +272,7 @@ public class ChatHandler extends SimpleChannelInboundHandler<TextWebSocketFrame>
 }
 ```
 
-### 2、SebSocket服务器
+### 2、WebSocket服务器
 
 ```java
 // 是一个配置类
