@@ -107,7 +107,7 @@ Znode更改是与znode相关的数据的修改或znode的子项中更改。只�
 | 复制数据库存(replicated database) | 它用于在zookeeper中存储数据。每个znode都有自己的数据库，每个znode在一致性的帮助下每次都有相同的数据。 |
 | Leader                            | Leader是负责处理写请求的Znode                                |
 | Follower                          | Follower客户端接收写入请求，并将它们转发到Leader znode。     |
-| 请求处理器(request processor)     | 只存在于leader节点。它管理来自follower节点的写入请求         |
+| 请求处理器(request processor)     | 只存在于leader节点。它管理来自[follower]()节点的写入请求     |
 | 原子广播(atomic broadcasts)       | 负责广播从Leader节点到Follower节点的变化                     |
 
 # 四、Zookeeper Leader选举
