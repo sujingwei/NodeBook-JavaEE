@@ -81,7 +81,7 @@ PUT /nba
 **请求：**
 
 ```
-GET /nab
+GET /nba
 ```
 
 **响应：**

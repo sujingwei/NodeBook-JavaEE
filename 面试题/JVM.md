@@ -66,6 +66,8 @@ JAVA代码编译后的字节码在未经过JIT（实时编译器）编译前，�
 
 # 五、堆
 
+![](http://notebook-1.aoae.top/15999607041922)
+
 新**new**出来的对象，会放在<span style="color:deeppink;">Eden</span>区。如果<span style="color:deeppink;">Eden</span>被放满，那么就会调用<span style="color:deeppink;">minor gc</span>回收<span style="color:deeppink;">Eden</span>区中无效的，没有被引用的对象(垃圾对象)。
 
 **什么是垃圾对象？**

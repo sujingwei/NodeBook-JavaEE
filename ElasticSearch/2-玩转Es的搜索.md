@@ -17,7 +17,7 @@
 ```sh
 curl -X POST "localhost:9200/_bulk" -H 'Content-Type: application/json' --data-binary @filename
 # 操作如下：
-curl -X POST "http://localhost:9200/_bulk" -H "Content-Type: application/json" --da ta-binary @E:\es
+curl -X POST "http://localhost:9200/_bulk" -H "Content-Type: application/json" --data-binary @E:\es
 ```
 
 # 二、term的多种查询
