@@ -80,3 +80,100 @@ JAVA代码编译后的字节码在未经过JIT（实时编译器）编译前，�
 
 <span style="color:deeppink;">minor gc</span>，遍历**栈**、**方法区**里定义的变量/常量，确定出年轻代Eden区哪些对象已失去了<span style="color:deeppink;">GC Roots根节点</span>，那么就删除这些对象。
 
+# 六、GC收集器
+
+GC垃圾收集器主要有7种，分成3类：
+
+| 类型       | 收集器                           | 简介               |
+| ---------- | -------------------------------- | ------------------ |
+| 串行收集器 | Serial / Serial Old              |                    |
+| 并行收集器 | Parallel Scavenge / Parallel Old | 专注于应用的吞吐量 |
+| 并发收集器 | CMS / G1                         | 专注于响应时间     |
+
+## 1、Serial收集器
+
+Serial收集器的主要特点是单线程回收。当需要执行垃圾回收时，程序会暂停一切工作，使用复制算法完成垃圾清理工作。
+
+优点：
+
+- 简单高效，是Client模式下默认的垃圾收集器
+- 对于资源受限的环境，比如单核，单线程效率较高
+- 内存小于100-200的桌面程序中，交互有限，内有限的STW是可以接受的
+
+缺点：
+
+- 垃圾回收速度慢且回收能力有限，频繁的STW会导致较差的使用体验
+
+## 2、Parallel收集器
+
+Parallel收集器(Parallel Scavenge + Parallel Old)相比Serial收集器主要特点是，其是通过多线程完成垃圾的清理工作。其中ParallerScavenge使用复制算法完成垃圾收集(Parallel Old是使用标记算法)，如果从这一点看其与ParNew相似，但实际上两者的出发点存在区别，区别如下所示：
+
+- PraNew出发点在于加速资源的速度，以减少应用的STW时间
+- Parallel Scavenge出发点在于资源回收的吞吐量回(吞吐量：用户线程时间/(用户线程时间+GC线程时间))
+
+高吞吐量适合于交互较少的后台应用程序(如科学计算应用)，能够更加充分的压榨CPU。开发者可以根据应用的实际情况，通过以下两个参数追求最优性能：
+
+1. 最大停顿时间：垃圾收集器在执行垃圾回收时终端应用执行的最大时间间隔，-XX:MaxGCPauseMills；
+2. 吞吐量：执行垃圾收集的时间与执行应用的时间占比，-XX:GXTimeRatio=，垃圾收集时间占比:1/(1+N)
+
+## 3、CMS(Concurrent Mark Sweep)收集器
+
+CMS收集器是JDK1.5推出的第一款真正意义上的并发收集器(针对老年代)，实现了让垃圾收集与用户线程(近似)同时工作，其具有以下的特点：
+
+1. 基于“标记-清除”算法；
+2. 以获取最短回收停顿时间为目标；
+3. 并发收集，停顿时间短
+
+CMS的垃圾收集过程比较复杂，主要步骤如下所示：
+
+1. CMS Initial Mark：**初始化Root**(STW，单线程执行，不过因为仅仅把GC Roots的直接可达对象标记一下，所以速度较快)；
+2. CMS Concurrent Mark：**并发标记**；
+3. CMS Concurrent Preclean：**并发预清理**；
+4. CMS Remark：**再次并发标记**(会STW，因为在标记的过程中会产生新的垃圾，需要重新标记新产生的垃圾)；
+5. CMS Concurrent Sweep：**并发清除**；
+6. CMS Concurrent Reset：**并发重置**。
+
+以上步骤中，最为耗费时间的并发标记与并发清除阶段，不需要应用程序暂停执行，所以垃圾回收的停顿时间较短。
+
+缺点：
+
+1. 对CPU资源敏感：并发收集虽然不会暂停应用程序，但是会占用CPU资源从而降低应用程序的执行效率（CMS默认收集线程数量=(CPU数量 + 3) / 4）;
+2. 产生浮动垃圾：在并发清除时，用户线程会产生新的垃圾，称之为浮动垃圾（发并清除时需要预留内存空间，不能像其它收集器在老年代几乎填满之后再进行收集工作）；
+3. 产生空间碎片：使用“标记-清除”算法，会产生大量不连续的内存碎片，从而导致在分配大内存对象时，无法找到足够的连续内存，从而需要提前触发一次Full GC操作。
+
+针对以上缺点，可以使用如下参数进行改进：
+
+- `-XX:ConcGCThreads`:并发的GC的线程数，从而降低CPU敏感度；
+- `-XX:CMSInitiatingOccupancyFraction`：合理设置CMS的预留内存空间；
+- `-XX:+UseCMSCompactAtFullGCCollection`: FullGC之后执行压缩操作，消减内存碎片；
+- `-XX:CMSFullGCBeforeCompaction`: 执行多次FullGC之后执行压缩操作，消减内存碎片。
+
+## 4、G1收集器
+
+![](https://img2018.cnblogs.com/blog/764719/201910/764719-20191024140138680-334445497.png)
+
+需要注意的是G1垃圾收集器在新生代及老年代都能进行工作，这是因为相比于前面所介绍的垃圾收集器，它具有不同的堆内存结构。以前的垃圾收集器分代是划分为新生代、老年代及持久代等。
+
+![](https://img2018.cnblogs.com/blog/764719/201910/764719-20191024140531311-1469386190.png)
+
+**G1将内存划分为多个大小相同的Region**(1-32M，上限2048个)，每个Region均拥有自己的分代属性，这些分代不需要连续。通过划分Region，<i style="color:deeppink;">G1可以根据计算老年代对象的效益率，优先回收具有最高效益的对象</i>(分代的内存不连续，GC搜索垃圾时需要全盘扫描找出对象引用情况，G1通过在每个Region中维护一个Remembered Set记录对象引用情况解决此问题)。具体如下图所示：
+
+![](https://img2018.cnblogs.com/blog/764719/201910/764719-20191024141046983-2013686588.png)
+
+G1提供两种GC模式：Young GC及Mixed GC，两种GC都会STW。
+
+1. Young GC: 选定所有年轻代里的Region。通过控制年轻代的Region个数，即年轻代内存大小，来控制Young GC的时间开销。
+2. Mixed GC选定所有年轻代里Region，外加根据global concurrent marking统计得出收集效益高的若干老年代Region，在用户指定的开销目标范围内尽可能选择收集效益高的老年代Region。
+
+> Mixed GC不是Full GC，它是只回收部分老年代的Region，如果Mixed GC实在无法跟上程序分配内存的速度，导致老年代填满无法继续进行Mixed GC，就会使用Serial Old GC (Full GC)来收集事个GC heap(此时效率会很低)。所以我们知道，G1是不提供Full GC的。
+
+在执行MixedGC之前需要进行并发标记过程(Global Concurrent Marking)，具体步骤如下：
+
+1. Initial Marking phase:标记GCRoots(会STW);
+2. Root Region Scanning Phase:标记存活Region;
+3. Concurrent Marking Phase:标记存活的对象
+4. Remark phase:重新标记(会STW);
+5. Cleanup phase: 回收内存。
+
+需要注意，Mixed GC并不是一次性执行完，它会分为多个步骤执行，在每次执行时，G1会计算每个Region中的垃圾占内存分段比例，如果超过`-XX:G1MixedGCLiveThresholdPercent`，则进行回收操作。此外，G1中可以设置堆内存中有多少空间允许浪费，即`-XX:G1HeapWastePercent`，在并发标记结束后，可以知道有多少空间要被回收，在每次Young GC和发生Mixed GC之前，会检查垃圾占比是否到达了些阈值，只有到达了，才会发生Mixed GC。
+
