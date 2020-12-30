@@ -18,7 +18,7 @@ SpringBoot：底层是Spring，Spring框架默认是JCL;
 
 ## 2、SLF4j使用
 
-​	开发中，日志记录方法的调用，不应该直接调用日志实现类，而是调用日志抽象层里面的方法。
+开发中，日志记录方法的调用，不应该直接调用日志实现类，而是调用日志抽象层里面的方法。
 
 在Java项目中，不同的框架依赖的日志实现都是不一样的，而SpringBoot为了让所有的框架统一使用slf4j需要做以下操作：
 
@@ -28,7 +28,7 @@ SpringBoot：底层是Spring，Spring框架默认是JCL;
 
 ## 3、SpringBoot日志使用
 
-​	springboot依赖了spring-boot-starterr的jar包，这个包又依赖了spring-boot-starter-logging的jar包，这个包又依赖了logback-classic, jul-to-slf4j, log4j-over-slf4j, jcl-over-slf4j 等jar包，这些包的作用就是把各框架的日志转为slf4j的日志。
+​	springboot依赖了spring-boot-starter的jar包，这个包又依赖了spring-boot-starter-logging的jar包，这个包又依赖了logback-classic, jul-to-slf4j, log4j-over-slf4j, jcl-over-slf4j 等jar包，这些包的作用就是把各框架的日志转为slf4j的日志。
 
 * SpringBoot选择的是SLF4j 和Logback进行日志记录
 * SpringBoot也把其它的日志都替换成了slf4j

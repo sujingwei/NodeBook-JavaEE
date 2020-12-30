@@ -213,11 +213,11 @@ public class Quick2Controller {
 ```xml
 <!-- 映射@ConfigurationProperties执行器 -->
 <!-- 当前依赖可以不用加入，但加入后会有提示，也不会报警告 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+    <optional>true</optional>
+</dependency>
 ```
 
 **java文件**
@@ -313,7 +313,7 @@ public class MyMvcConfig implements WebMvcConfigurer {
 
 **application.properites配置数据源和mybatis扫描的包**
 
-```
+```properties
 # 数据库连接信息
 spring.datasource.driverClassName=com.mysql.jdbc.Driver
 spring.datasource.url=jdbc:mysql://127.0.0.1:3306/test?useUnicode=true&characterEncoding=utf8
@@ -404,9 +404,9 @@ public class MyBatisTest {
 
 ```xml
 <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
+   <groupId>org.springframework.boot</groupId>
+   <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
 ```
 
 **java测试类**
