@@ -498,3 +498,297 @@ OAuth是一个开放授权标准，允许用户授权第三方应用访问他们
 
 ### 4)、资源工程
 
+
+
+## 3、基本操作
+
+### 1)、授权模式：authorization_code
+
+- 同一用户，获取的是一样的，过期后就刷新
+
+#### (1)、请求授权码
+
+GET:`/oauth/authorize?client_id=xiaoming&response_type=code`
+
+因为在`AuthorizationServerConfigurerAdapter`实现类中`public void configure(ClientDetailsServiceConfigurer clients) `方法配置了`clients.inMemory().withClient("xiaoming")...autoApprove(false).redirectUris("http://www.baidu.com")`所以请求成功，会在浏览器中回调上面配置的url，并带上参数:`code=AYLnsD`，它的值就是授权码。
+
+#### (2)、请求获取token
+
+POST:`/oauth/token`
+
+POST请求参数如下：
+
+```
+grant_type:authorization_code
+code:AYLnsD # 这个就是上一节获取的授权码，每一个授权码，只能获取一次token
+```
+
+请求头：
+
+```
+下面的值是eGlhb21pbmc6MTIzNDU2是由 base64(client_id + : + secret) 得到的
+Authorization: Basic eGlhb21pbmc6MTIzNDU2
+```
+
+请求结果
+
+```json
+{
+    "access_token": "34f6c693-a425-43a7-9e0c-309cbb043781",// 同一用户，获取的是一样的，过期后就刷新
+    "token_type": "bearer",
+    "refresh_token": "c2cefef8-f4e5-43b1-9c3c-e92ab9f8b47e",
+    "expires_in": 43199, // 令牌的有效时间
+    "scope": "all"
+}
+```
+
+### 2)、授权模式：password
+
+#### (1)、AuthenticationManager的实例加入到容器中
+
+`AuthenticationManager`在这实现已经在`WebSecurityConfigurerAdapter`里了
+
+```java
+/**
+ * 安全配置类
+ */
+@EnableWebSecurity
+public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
+  	// ......
+  
+  	/**
+     * 密码模式需要重写这个方法，并加入到容器中
+     * @return
+     * @throws Exception
+     */
+    @Bean
+    @Override
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean(); // 调用父类，就可以获取
+    }
+```
+
+#### (2)、在端点配置中配置AuthenticationManager
+
+```java
+/**
+ * 认证服务器配置类
+ */
+@Configuration
+@EnableAuthorizationServer // 开启认证服务器
+public class AuthorizationServerConfig extends
+        AuthorizationServerConfigurerAdapter {
+		/** 加密 */
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    /**
+     * 密码模式需要一个权限管理器
+     */
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Override
+    public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+        // ......
+    }
+
+    /**
+     * 访问配置端点
+     * @param endpoints
+     * @throws Exception
+     */
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        // 密码模式需要它
+        endpoints.authenticationManager(authenticationManager);
+    }
+```
+
+#### (3)、请求获取token
+
+密码模式<u>不需要获取授权码</u>，直接获取用户名及密码：
+
+POST:`/oauth/token`
+
+请求参数如下：
+
+```
+grant_type:password
+username:admin
+password:1234
+```
+
+请求头：
+
+```
+下面的值是eGlhb21pbmc6MTIzNDU2是由 base64(client_id + : + secret) 得到的
+Authorization: Basic eGlhb21pbmc6MTIzNDU2
+```
+
+请求结果
+
+```json
+{
+    "access_token": "b050e531-19e1-45fc-8658-b744f82099aa",
+    "token_type": "bearer",
+    "refresh_token": "b0e03635-b8f7-4104-88c5-a84dd0266944",
+    "expires_in": 43199,
+    "scope": "all"
+}
+```
+
+### 3)、授权模式：implicit
+
+简易模式操作比较简单：
+
+#### (1)、获取token
+
+第一个参数：client_id，就是配置的客户id
+
+第二个参数：response_type的值为token
+
+在浏览器上发请求:`/oauth/authorize?client_id=xiaoming&response_type=token`
+
+跳转到登录页面，输入用户名及密码。
+
+#### (2)、请求结果会封装到回调的URL上
+
+查看URL
+
+```
+#access_token=b050e531-19e1-45fc-8658-b744f82099aa&token_type=bearer&expires_in=42725&scope=all
+```
+
+### 4)、授权模式：client_credentials
+
+客户端模式，每次请求，都会有一个新的令牌，它没有令牌刷新的概念
+
+#### (1)、直接发请求获取token
+
+POST:`/oauth/token`
+
+请求参数：
+
+```
+下面的值是eGlhb21pbmc6MTIzNDU2是由 base64(client_id + : + secret) 得到的
+Authorization: Basic eGlhb21pbmc6MTIzNDU2
+```
+
+请求结果：
+
+```json
+{
+    "access_token": "342e5174-152c-404f-9012-2ccacfa11219",
+    "token_type": "bearer",
+    "expires_in": 43199,
+    "scope": "all"
+}
+```
+
+### 5)、刷新令牌(token)
+
+#### (1)、刷新令牌需要配置UserDetailsService到容器中
+
+```java
+@Component("customUserDetailsService")
+public class CustomUserDetailsService implements UserDetailsService {
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Override
+    public UserDetails loadUserByUsername(String s) throws UsernameNotFoundException {
+        // 仿：读数据库操作
+        return new User("admin", passwordEncoder.encode("1234"),
+                AuthorityUtils.commaSeparatedStringToAuthorityList("product"));
+    }
+}
+```
+
+#### (2)、安全配置类，使用数据库查询到的用户信息
+
+`WebSecurityConfigurerAdapter`的实现类设置`auth.userDetailsService(userDetailsService);`
+
+```java
+/**
+ * 安全配置类
+ */
+@EnableWebSecurity
+public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    @Qualifier(value = "customUserDetailsService")
+    private UserDetailsService userDetailsService;
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        /** 这是内存保存用户名及密码方式
+        auth.inMemoryAuthentication()
+                .withUser("admin")
+                .password(passwordEncoder.encode("1234"))
+                .authorities("product");
+         */
+        /** 读数据库连接信息，获取用户名、密码及权限信息 */
+        auth.userDetailsService(userDetailsService);
+    }
+
+    /**
+     * 密码模式需要重写这个方法，并加入到容器中
+     * @return
+     * @throws Exception
+     */
+    @Bean
+    @Override
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean(); // 必需
+    }
+}
+```
+
+#### (3)、在认证端点里配置UserDetailService
+
+```java
+/**
+ * 认证服务器配置类
+ */
+@Configuration
+@EnableAuthorizationServer // 开启认证服务器
+public class AuthorizationServerConfig extends
+        AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    /**
+     * 密码模式需要一个权限管理器
+     */
+    @Autowired
+    private AuthenticationManager authenticationManager;
+  
+    /**
+     * userDetailsService
+     */
+    @Autowired
+    @Qualifier(value = "customUserDetailsService") // 这是定义义的名称
+    private UserDetailsService userDetailsService;
+
+    /**
+     * 访问配置端点
+     * @param endpoints
+     * @throws Exception
+     */
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        // 密码模式需要它
+        endpoints.authenticationManager(authenticationManager);
+
+        // 刷新token需要配置userDetailsService
+        endpoints.userDetailsService(userDetailsService);
+    }
+  	// ......
+}
+
+```
+
