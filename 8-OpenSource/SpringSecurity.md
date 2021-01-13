@@ -792,3 +792,620 @@ public class AuthorizationServerConfig extends
 
 ```
 
+## 4、令牌存储策略
+
+默认情况下，令牌randomUUID产生32位随机数来进行填充，而产生的令牌是默认的存储是存储在内存中
+
+- (默认)内存存储采用的是TokenStore接口的默认实现类`InKemoryTokenStore`，开发时方便调试，适用单机版。
+- `RedisTokenStore`将令牌信息存储到Redis中
+- `JdbcTokenStore`基于JDBC将令牌存储到关系型数据库中
+- `JwtTokenStore`将用户信息直接编码到令牌中，这样后端可以不用存储它，前端拿到令牌可以直接解析出用户信息。
+
+### 1)、Redis管理令牌
+
+#### (1)、引入Redis依赖
+
+```xml
+ <!-- redis -->
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+```
+
+- 在application.yml文件上不需要配置redis，使用它的默认配置就可以了
+
+#### (2)、创建TokenStore接口的实现类
+
+```java
+/**
+ * 通过Redis管理令牌
+ */
+@Configuration
+public class TokenStoreConfig {
+    /**
+     * 注入redis连接工厂
+     */
+    @Autowired
+    private RedisConnectionFactory redisConnectionFactory;
+		
+  	/** TODO 返回这个Bean */
+    @Bean(name = "tokenStore")
+    public TokenStore tokenStore(){
+        // 如果使用Redis的话，需要使用RedisConnectionFactory来创建这个类
+        RedisTokenStore tokenStore = new RedisTokenStore(redisConnectionFactory);
+        return tokenStore;
+    }
+}
+```
+
+#### (3)、配置端点使用TokenStore
+
+```java
+@Configuration
+@EnableAuthorizationServer // 开启认证服务器
+public class AuthorizationServerConfig extends
+        AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    /**
+     * 密码模式需要一个权限管理器
+     */
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    /**
+     * userDetailsService
+     */
+    @Autowired
+    @Qualifier(value = "customUserDetailsService")
+    private UserDetailsService userDetailsService;
+		
+  	/** 引入token */
+    @Autowired
+    private TokenStore tokenStore;
+
+    /**
+     * 访问配置端点
+     * @param endpoints
+     * @throws Exception
+     */
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        // 密码模式需要它
+        endpoints.authenticationManager(authenticationManager);
+
+        // 刷新token需要配置userDetailsService
+        endpoints.userDetailsService(userDetailsService);
+
+        // TODO 配置使用redis来管理token
+        endpoints.tokenStore(tokenStore);
+    }
+}
+```
+
+#### (4)、测试使用
+
+参考基本操作，密码授权模式，发送POST请求，获取token，后查看Redis如下：
+
+```
+127.0.0.1:6379> keys *
+1) "auth_to_access:bb735ba4114d38c49f7bc7f27e714a2f"
+2) "access_to_refresh:e3076079-56b7-4371-91ed-cc0b5be19fc8"
+3) "auth:e3076079-56b7-4371-91ed-cc0b5be19fc8"
+4) "refresh_auth:e1473939-37a4-492f-b1a9-84cb614e4906"
+5) "uname_to_access:xiaoming:admin"
+6) "refresh:e1473939-37a4-492f-b1a9-84cb614e4906"
+7) "access:e3076079-56b7-4371-91ed-cc0b5be19fc8"
+8) "refresh_to_access:e1473939-37a4-492f-b1a9-84cb614e4906"
+9) "client_id_to_access:xiaoming"
+```
+
+不管是请求令牌、刷新令牌、或校验令牌，都不需要我们手动对令牌信息进行维护，交给spring security来维护令牌信息。
+
+### 2)、JDBC管理令牌
+
+Spring官方提供了存储OAuth2相关的数据库表结构，下载地址：
+
+https://github.com/spring-projects/spring-security-oauth/blob/master/spring-security-oauth2/src/test/resources/schema.sql
+
+#### (1)、引入依赖
+
+```xml
+<!-- spring jdbc -->
+<dependency>
+   <groupId>org.springframework.boot</groupId>
+   <artifactId>spring-boot-starter-jdbc</artifactId>
+</dependency>
+<!--druid连接池 -->
+<dependency>
+   <groupId>com.alibaba</groupId>
+   <artifactId>druid</artifactId>
+</dependency>
+<!-- mysql -->
+<dependency>
+   <groupId>mysql</groupId>
+   <artifactId>mysql-connector-java</artifactId>
+</dependency>
+```
+
+配置数据库源：
+
+```yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: root
+    url: jdbc:mysql://localhost:3306/test_security?useUnicode=true&characterEncoding=UTF8&useSSL=true
+    type: com.alibaba.druid.pool.DruidDataSource
+```
+
+#### (2)、创建TokenStore接口的实现类
+
+不需要创建了，在原来的上面改
+
+```java
+/**
+ * 通过Jdbc管理令牌
+ */
+@Configuration
+public class TokenStoreConfig {
+    /**
+     * 注入redis连接工厂
+     */
+    @Autowired
+    private RedisConnectionFactory redisConnectionFactory;
+		/** 数据源 */
+    @Autowired
+    private DataSource dataSource;
+
+    @Bean(name = "tokenStore")
+    public TokenStore tokenStore() {
+        TokenStore tokenStore = null;
+        // 如果使用Redis的话，需要使用RedisConnectionFactory来创建这个类
+        // tokenStore = new RedisTokenStore(redisConnectionFactory);
+
+        // 配置Jdbc来保存和操作token
+        tokenStore = new JdbcTokenStore(dataSource);
+        return tokenStore;
+    }
+}
+```
+
+#### (3)、配置端点使用TokenStore
+
+这一步不需要配置了。所用之前的配置就可以
+
+#### (4)、测试使用
+
+参考基本操作，密码授权模式，发送POST请求，获取token，后查看mysql如下：
+
+```mysql
+mysql> select token_id,authentication_id,user_name,client_id,refresh_token from oauth_access_token \G;
+*************************** 1. row ***************************
+         token_id: f1bd8df10f3c00d11a44a8ea55c2b525
+authentication_id: bb735ba4114d38c49f7bc7f27e714a2f
+        user_name: admin
+        client_id: xiaoming
+    refresh_token: d44d5f59186a83a44cb5a0ba62e40ebd
+1 row in set (0.00 sec)
+```
+
+### 3)、Jdbc管理授权码
+
+只有使用授权码模式`authorization_code`才会有授权码。默认的情况下，授权码是放在内存中的，原因是`JdbcAuthorizationCodeService`没有添加到容器中，开启后，会将授权码放到`auth_code`表，授权后就会删除它。
+
+#### (1)、创建AuthorizationCodeServices接口的Bean实现
+
+```java
+@Configuration
+public class SpringSecurityBean {
+
+    @Autowired
+    private DataSource dataSource;
+  
+    /**
+     * 创建AuthorizationCodeServices的Bean实现
+     * @return
+     */
+    @Bean
+    public AuthorizationCodeServices jdbcAuthorizationCodeServices(){
+        return new JdbcAuthorizationCodeServices(dataSource);
+    }
+  	// ......
+}
+```
+
+#### (2)、把它配置到端点上
+
+```java
+/**
+ * 认证服务器配置类
+ */
+@Configuration
+@EnableAuthorizationServer // 开启认证服务器
+public class AuthorizationServerConfig extends
+        AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    /**
+     * 密码模式需要一个权限管理器
+     */
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    /**
+     * userDetailsService
+     */
+    @Autowired
+    @Qualifier(value = "customUserDetailsService")
+    private UserDetailsService userDetailsService;
+
+    /**
+     * 保存token的方式 内存(默认)、redis、jdbc、jwt
+     */
+    @Autowired
+    private TokenStore tokenStore;
+
+    /**
+     * 只有使用authorization_code模式才会创建【授权码】
+     * 通过AuthorizationCodeServices，把授权码保存到jdbc的oauth_code表中
+     * 使用完授权码后，会删除行记录
+     */
+    @Autowired
+    private AuthorizationCodeServices jdbcAuthorizationCodeServices;
+
+    /**
+     * 访问配置端点
+     * @param endpoints
+     * @throws Exception
+     */
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        // 密码模式需要它
+        endpoints.authenticationManager(authenticationManager);
+
+        // 刷新token需要配置userDetailsService
+        endpoints.userDetailsService(userDetailsService);
+
+        // 配置使用redis来管理token
+        endpoints.tokenStore(tokenStore);
+
+        // 配置授权码管理策略，把授权码保存到jdbc中
+        endpoints.authorizationCodeServices(jdbcAuthorizationCodeServices);
+    }
+  	// ......
+}
+```
+
+#### (3)、测试
+
+只有使用授权码模式才会有授权码：
+
+POST:`/oauth/authorize?client_id=xiaoming&response_type=code`获取授权码，输入用户登录信息后查看数据库的OAuth_code表：
+
+```mysql
+mysql> select code from oauth_code;
++--------+
+| code   |
++--------+
+| 4YD0QE |
++--------+
+```
+
+可以看到保存了授权码信息了。<u>通过授权码去换取token后，就会删除当前记录</u>：
+
+```mysql
+mysql> select code from oauth_code;
+Empty set (0.00 sec)
+```
+
+### 4)、使用JDBC保存客户端client的信息
+
+#### (1)、在oauth_client_details表上创建一个客户端(client)的信息
+
+```mysql
+mysql> select * from oauth_client_details \G;
+*************************** 1. row ***************************
+              client_id: product
+           resource_ids: product-server
+          client_secret: $2a$10$jTl585C3Yimq6Q5LaopwCeQyYe.HhKsOupZWueqXY0jCS87waWs4y
+                  scope: all,PRODUCT_API
+ authorized_grant_types: authorization_code,password,implicit,client_credentials,refresh_token
+web_server_redirect_uri: http://www.baidu.com
+            authorities: NULL
+  access_token_validity: 1000        # 这里设置token的过期时间
+ refresh_token_validity: NULL
+ additional_information: NULL
+            autoapprove: false
+1 row in set (0.00 sec)
+```
+
+#### (2)、添加JdbcClientDetailsService的实例到容器中
+
+```java
+@Configuration
+public class SpringSecurityBean {
+
+    @Autowired
+    private DataSource dataSource;
+
+    /**
+     * 通过Jdbc管理客户端信息
+     * @return
+     */
+    @Bean
+    public JdbcClientDetailsService jdbcClientDetailsService(){
+        return new JdbcClientDetailsService(dataSource);
+    }
+  	// .......
+}
+```
+
+#### (3)、修改“认证服务器配置类”中的客户端信息信息
+
+客户端信息信息从原来的基于内存的配置改为基于jdbc的配置：
+
+```java
+/**
+ * 认证服务器配置类
+ */
+@Configuration
+@EnableAuthorizationServer // 开启认证服务器
+public class AuthorizationServerConfig extends
+        AuthorizationServerConfigurerAdapter {
+
+    /**
+     * 通过Jdbc管理客户端信息
+     * 客户端的数据会保存到oauth_client_details表上
+     */
+    @Autowired
+    private JdbcClientDetailsService jdbcClientDetailsService;
+
+    @Override
+    public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+        /** TODO 使用内存对客户端信息进行管理
+        // 基于内存的管理不再使用
+        clients.inMemory().withClient("xiaoming")
+                .secret(passwordEncoder.encode("123456"))
+                // 资源ID，针对微服务，就是服务的名称, 可以限制当前用户访问的服务
+                .resourceIds("product-server")
+                // 配置授权模式，可以配置多种
+                .authorizedGrantTypes("authorization_code", "password", "implicit", "client_credentials", "refresh_token")
+                // 可以访问资源的标识，这个标识可以是任意字符
+                .scopes("all")
+                // false: 跳转到一个制授权页面；true：不需要手动授权，直接响应一个授权码
+                .autoApprove(false)
+                // TODO 这是客户端回调地址，请求成功，并且上面配置为false，在下面的URL上带上 ?code=AYLnsD的参数回调客户端浏览器
+                // TODO 请求的URL地址为：oauth/authorize?client_id=xiaoming&response_type=code
+                // 需要带上client_id及response_type两个参数
+                .redirectUris("http://www.baidu.com")
+                // 默认令牌的使用时间为12小时，可以通过下面配置令牌的使用时间
+                .accessTokenValiditySeconds(60*60*2)
+                // TODO 如果有多个客户端
+                // .and().withClient("").resourceIds("").authorities("").authorizedGrantTypes().scopes("").autoApprove(false).redirectUris("")
+        ;
+        */
+
+        /** TODO 通过Jdbc的方式管理客户端信息 */
+        clients.withClientDetails(jdbcClientDetailsService);
+    }
+  	// .......
+```
+
+- 对比一下内存的配置，可以看到与表字段相同
+
+#### (4)、测试
+
+参考基本操作，密码授权模式，发送POST请求，获取token：
+
+```json
+{
+    "access_token": "5b609d87-c1d1-4304-bbeb-be38016e4e91",
+    "token_type": "bearer",
+    "refresh_token": "2e744e97-0b3f-4c7e-ae2d-a6f13b4e5f1e",
+    "expires_in": 999,    // token的过期时间少于数据库里配置的时间
+    "scope": "all PRODUCT_API"
+}
+```
+
+ token的过期时间少于数据库里配置的时间，可见使用了数据库保存的客户端信息。
+
+### 5)、令牌安全策略
+
+- `/oauth/authorize`： 申请授权码code涉及的类`AuthorizationEndpoint`
+- `/oauth/token`：获取令牌token，涉及的类`TokenEndpoint`
+
+- `/oauth/check_token`：检查令牌是否有效，涉及的类`CheckTokenEndpoint`
+
+- `/oauth/confirm_access`，用户确认授权提交，涉及的类`WhitelabelApprovalEndpoint`
+
+- `/oauth/error`：授权服务错误信息，涉及的类`WhitelabelErrorEndpoint`
+- `/oauth/token_key`：提供公有的密匙端点，使用JWT令牌时会使用，涉及的类`TokenKeyEndpoint`
+
+
+
+<sapn style="color:blue;">默认情况下<b>/oauth/check_token</b>和<b>/oauth/token_key</b>端点默认是<b>denyALl()</b>不允许访问。</span>
+
+
+
+> Spring Security 允许我们使用 Spring EL 表达式，来进行用户权限的控制，如果对应的表达式结果返回true，则表示拥有对应的权限，反之则无。
+>
+> Spring Security 可用表达式对象的基类是 SecurityExpressionRoot 参见此类即可。
+>
+
+**注意****:** **表达式以下面为准****,** **黄色标注的** **is** **在使用时是要加上的**
+
+|表达式|描述|
+|---|---|
+|permitAll() |总是返回true，表示允许所有访问（认证不认证都可访问 URL或方法）|
+|denyAll()| 总是返回false，表示拒绝所有访问（永远访问不到指定的 URL或方法）|
+|isAnonymous()|  当前用户是一个匿名用户（未登录用户）允许访问，返回true |
+|isRememberMe()| 当前用户是通过Remember-Me自动登录的允许访问，返回true |
+|isAuthenticated()  |当前用户是已经登录认证成功的允许访问（包含了rememberMe自动登录的），返回true|
+|isFullyAuthenticated()| 如果当前用户既不是一个匿名用户，同时也不是通过Remember-Me自动登录的，则允许访问（可以理解为通过页面输入帐户信息认证的）。|
+| hasRole(String role)|当前用户拥有指定角色权限的允许访问，返回true。注意: 指定的角色名(如： ADMIN ) SpringSecurity 底层会在前面拼接 ROLE_ 字符串，所以在UserDetailsService实现类，数据库返回的角色名要有ROLE_ADMIN|
+|hasAnyRole([role1, role2])| 多个角色以逗号分隔的字符串。如果当前用户拥有指定角色中的任意一个则允许访问，返回true。|
+|hasAuthority(String authority) |当前用户拥有指定权限标识的允许访问，返回true。注意：和 hasRole。区别是， hasAuthority 不会在前面拼接 ROLE_ 字符串。|
+|hasAnyAuthority([auth1,auth2]) |多个权限标识是以逗号分隔的字符串。如果当前用户拥有指定权限标识中的任意一个则允许访问，返回true|
+|hasIpAddress("192.168.1.1/29")| 限制指定IP或指定范围内的IP才可以访问|
+
+#### (1)、打开访问站点权限配置
+
+```java
+package top.aoae.server.oauth2;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
+import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
+import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
+import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
+import org.springframework.security.oauth2.provider.client.JdbcClientDetailsService;
+import org.springframework.security.oauth2.provider.code.AuthorizationCodeServices;
+import org.springframework.security.oauth2.provider.token.TokenStore;
+
+/**
+ * 认证服务器配置类
+ */
+@Configuration
+@EnableAuthorizationServer // 开启认证服务器
+public class AuthorizationServerConfig extends
+        AuthorizationServerConfigurerAdapter {
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    /**
+     * 密码模式需要一个权限管理器
+     */
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    /**
+     * userDetailsService
+     */
+    @Autowired
+    @Qualifier(value = "customUserDetailsService")
+    private UserDetailsService userDetailsService;
+
+    /**
+     * 保存token的方式 内存(默认)、redis、jdbc、jwt
+     */
+    @Autowired
+    private TokenStore tokenStore;
+
+    /**
+     * 只有使用authorization_code模式才会创建【授权码】
+     * 通过AuthorizationCodeServices，把授权码保存到jdbc的oauth_code表中
+     * 使用完授权码后，会删除行记录
+     */
+    @Autowired
+    private AuthorizationCodeServices jdbcAuthorizationCodeServices;
+
+    /**
+     * 通过Jdbc管理客户端信息
+     * 客户端的数据会保存到oauth_client_details表上
+     */
+    @Autowired
+    private JdbcClientDetailsService jdbcClientDetailsService;
+
+    @Override
+    public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+        /** 通过Jdbc的方式管理客户端信息 */
+        clients.withClientDetails(jdbcClientDetailsService);
+    }
+
+    /**
+     * 访问配置端点
+     * @param endpoints
+     * @throws Exception
+     */
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        // 密码模式需要它
+        endpoints.authenticationManager(authenticationManager);
+
+        // 刷新token需要配置userDetailsService
+        endpoints.userDetailsService(userDetailsService);
+
+        // 配置使用redis来管理token
+        endpoints.tokenStore(tokenStore);
+
+        // 配置授权码管理策略，把授权码保存到jdbc中
+        endpoints.authorizationCodeServices(jdbcAuthorizationCodeServices);
+    }
+
+    /**
+     * TODO，在这里打开,令牌端点的安全配置
+     * @param security
+     * @throws Exception
+     */
+    @Override
+    public void configure(AuthorizationServerSecurityConfigurer security) throws Exception {
+        // 配置所有人都可以访问，/oauth/token_key，默认不允许访问
+        security.tokenKeyAccess("permitAll()");
+        // 配置认证后可以访问，/oauth/check_token，默认不允许访问
+        security.checkTokenAccess("isAuthenticated()");
+    }
+}
+```
+
+就下面两行代码：
+
+```java
+// 配置所有人都可以访问，/oauth/token_key，默认不允许访问
+security.tokenKeyAccess("permitAll()");
+// 配置认证后可以访问，/oauth/check_token，默认不允许访问
+security.checkTokenAccess("isAuthenticated()");
+```
+
+#### (2)、测试
+
+POST:`/oauth/check_token`
+
+请求头：
+
+```
+下面的值是eGlhb21pbmc6MTIzNDU2是由 base64(client_id + : + secret) 得到的
+Authorization: Basic eGlhb21pbmc6MTIzNDU2
+```
+
+请求参数：
+
+```
+token:8b63d2d2-27d8-4b73-8a9c-7eccdcf024f1
+```
+
+请求结果：
+
+```json
+{
+    "aud": [
+        "product-server"
+    ],
+    "user_name": "admin",
+    "scope": [
+        "all",
+        "PRODUCT_API"
+    ],
+    "active": true,
+    "exp": 1610455381,
+    "authorities": [
+        "product"
+    ],
+    "client_id": "product"
+}
+```
+
