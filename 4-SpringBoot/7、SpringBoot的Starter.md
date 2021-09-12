@@ -98,8 +98,6 @@ public @interface Configuration {
 @Import(top.aoae.HelloController.class) 
 ```
 
-
-
 #### (2) @EnableAutoConfiguration注解
 
 ```java

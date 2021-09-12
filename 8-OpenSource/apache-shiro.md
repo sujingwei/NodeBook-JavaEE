@@ -165,7 +165,7 @@ public void testAuthenticator () {
 #### 1）MD5 + Salt 加密方式
 
 ```java
-Test
+@Test
 public void testMd5Salt() {
     // 普通md5
     Md5Hash md5Hash = new Md5Hash("123");
@@ -529,7 +529,6 @@ public class ShiroConfig {
     }
 
 }
-
 ```
 
 Shiro常见的过滤器
@@ -544,5 +543,5 @@ Shiro常见的过滤器
 | perms             | PermissionsAuthorizationFilter | 需要指定权限才能访问                                         |
 | port              | PortFilter                     | 需要指定端口才能访问                                         |
 | rest              | HttpMethodPermissionFilter     | 将http请求方式转化成相应的动词来构造一个权限字符串           |
-| roles             | RolesAuthorizationFilter       | 需要指定角色才能访问                                         |                          
+| roles             | RolesAuthorizationFilter       | 需要指定角色才能访问                                         |
 
