@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spring Cloud Alibaba Seata 分布式事务教程</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-theme">
+<style>
+/* ==================== CSS 变量 / 主题 ==================== */
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-sidebar: #f0f2f5;
+  --bg-code: #f6f8fa;
+  --bg-code-header: #e8eaed;
+  --text: #1f2328;
+  --text-secondary: #59636e;
+  --text-muted: #8b949e;
+  --border: #d1d9e0;
+  --border-light: #e3e8ed;
+  --accent: #00b383;
+  --accent-light: #e6f9f3;
+  --accent-dark: #00906b;
+  --warn: #d97706;
+  --warn-bg: #fffbeb;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --info: #2563eb;
+  --info-bg: #eff6ff;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.10), 0 3px 10px rgba(0,0,0,0.06);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --sidebar-w: 300px;
+}
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-sidebar: #010409;
+  --bg-code: #161b22;
+  --bg-code-header: #21262d;
+  --text: #e6edf3;
+  --text-secondary: #9da7b3;
+  --text-muted: #6e7681;
+  --border: #30363d;
+  --border-light: #21262d;
+  --accent: #2ee5a0;
+  --accent-light: #0d2a22;
+  --accent-dark: #2ee5a0;
+  --warn: #f0a830;
+  --warn-bg: #1c1607;
+  --danger: #ff6b6b;
+  --danger-bg: #2a0f0f;
+  --info: #60a5fa;
+  --info-bg: #0d1626;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.4);
+}
+/* ==================== 全局 ==================== */
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:80px; }
+body {
+  font-family:'Inter','Noto Sans SC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.7;
+  transition:background .3s ease,color .3s ease;
+  font-size:15px;
+}
+/* ==================== 顶部栏 ==================== */
+.topbar {
+  position:fixed; top:0; left:0; right:0; height:60px;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 24px; z-index:1000;
+  box-shadow:var(--shadow);
+}
+.topbar .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; }
+.topbar .logo-icon {
+  width:32px; height:32px; border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+  display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px;
+}
+.topbar .logo span { color:var(--accent); }
+.topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+.theme-toggle {
+  width:40px; height:40px; border-radius:10px; border:1px solid var(--border);
+  background:var(--bg-secondary); cursor:pointer; font-size:18px;
+  display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.theme-toggle:hover { border-color:var(--accent); color:var(--accent); }
+.menu-toggle { display:none; }
+/* ==================== 侧边栏 ==================== */
+.sidebar {
+  position:fixed; top:60px; left:0; bottom:0; width:var(--sidebar-w);
+  background:var(--bg-sidebar); border-right:1px solid var(--border);
+  overflow-y:auto; padding:24px 0; z-index:999;
+  transition:transform .3s ease;
+}
+.sidebar-title {
+  font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1px;
+  color:var(--text-muted); padding:0 24px 12px;
+}
+.sidebar nav a {
+  display:block; padding:8px 24px; color:var(--text-secondary); text-decoration:none;
+  font-size:14px; border-left:3px solid transparent; transition:all .2s;
+}
+.sidebar nav a:hover { color:var(--accent); background:var(--accent-light); }
+.sidebar nav a.active {
+  color:var(--accent); border-left-color:var(--accent); background:var(--accent-light); font-weight:500;
+}
+.sidebar nav a.sub { padding-left:40px; font-size:13px; }
+/* ==================== 主内容 ==================== */
+.content { margin-left:var(--sidebar-w); margin-top:60px; padding:48px 56px 120px; max-width:920px; }
+/* ==================== 排版 ==================== */
+.content h1 { font-size:32px; font-weight:700; margin-bottom:8px; letter-spacing:-0.5px; }
+.content .subtitle { color:var(--text-secondary); font-size:16px; margin-bottom:32px; }
+.content h2 {
+  font-size:26px; font-weight:600; margin-top:56px; margin-bottom:20px;
+  padding-bottom:12px; border-bottom:2px solid var(--accent);
+  letter-spacing:-0.3px; scroll-margin-top:80px;
+}
+.content h3 { font-size:20px; font-weight:600; margin-top:36px; margin-bottom:14px; scroll-margin-top:80px; }
+.content h4 { font-size:17px; font-weight:600; margin-top:24px; margin-bottom:10px; color:var(--accent-dark); }
+.content p { margin-bottom:16px; }
+.content ul, .content ol { margin-bottom:16px; padding-left:24px; }
+.content li { margin-bottom:6px; }
+.content strong { font-weight:600; }
+.content a { color:var(--accent); text-decoration:none; }
+.content a:hover { text-decoration:underline; }
+.content code:not(pre code) {
+  background:var(--bg-code); padding:2px 6px; border-radius:4px; font-size:13px;
+  font-family:'JetBrains Mono','Fira Code',monospace; border:1px solid var(--border-light);
+}
+.content blockquote {
+  border-left:4px solid var(--accent); background:var(--accent-light);
+  padding:16px 20px; margin:16px 0; border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+}
+.content blockquote p { margin:0; }
+/* ==================== 表格 ==================== */
+.table-wrap { overflow-x:auto; margin:16px 0 24px; border-radius:var(--radius-sm); border:1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { background:var(--bg-secondary); font-weight:600; text-align:left; padding:12px 16px; border-bottom:2px solid var(--border); white-space:nowrap; }
+td { padding:10px 16px; border-bottom:1px solid var(--border-light); }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:var(--bg-secondary); }
+/* ==================== 代码块 ==================== */
+.code-block { position:relative; margin:16px 0 24px; border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--border); }
+.code-header {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg-code-header); padding:8px 16px; font-size:12px;
+  font-family:'JetBrains Mono',monospace; color:var(--text-muted); border-bottom:1px solid var(--border);
+}
+.code-lang { font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+.copy-btn {
+  background:none; border:1px solid var(--border); border-radius:5px; padding:3px 10px;
+  font-size:11px; cursor:pointer; color:var(--text-secondary); transition:all .2s;
+  font-family:'Inter',sans-serif;
+}
+.copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+.copy-btn.copied { background:var(--accent); color:#fff; border-color:var(--accent); }
+.code-block pre { margin:0; }
+.code-block pre code {
+  display:block; padding:16px 20px; font-family:'JetBrains Mono','Fira Code',monospace;
+  font-size:13px; line-height:1.6; background:var(--bg-code); overflow-x:auto;
+}
+/* ==================== 提示框 ==================== */
+.alert { padding:16px 20px; border-radius:var(--radius-sm); margin:16px 0 24px; display:flex; gap:12px; }
+.alert-icon { font-size:20px; flex-shrink:0; }
+.alert-body { flex:1; }
+.alert-body p { margin:0; }
+.alert-body p + p { margin-top:8px; }
+.alert-warn { background:var(--warn-bg); border:1px solid var(--warn); }
+.alert-warn .alert-icon { color:var(--warn); }
+.alert-danger { background:var(--danger-bg); border:1px solid var(--danger); }
+.alert-danger .alert-icon { color:var(--danger); }
+.alert-info { background:var(--info-bg); border:1px solid var(--info); }
+.alert-info .alert-icon { color:var(--info); }
+/* ==================== 徽章 ==================== */
+.badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+.badge-green { background:var(--accent-light); color:var(--accent-dark); }
+.badge-blue { background:var(--info-bg); color:var(--info); }
+/* ==================== Hero ==================== */
+.hero {
+  background:linear-gradient(135deg,var(--accent-light),var(--bg-secondary));
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:40px; margin-bottom:40px;
+}
+.hero h1 { margin-top:0; }
+.hero .tech-stack { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.hero .tech-stack span {
+  background:var(--bg); border:1px solid var(--border); border-radius:20px;
+  padding:4px 14px; font-size:13px; font-weight:500;
+}
+/* ==================== 回到顶部 ==================== */
+.back-top {
+  position:fixed; bottom:32px; right:32px; width:44px; height:44px; border-radius:50%;
+  background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:20px;
+  box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:all .3s; z-index:998;
+}
+.back-top.show { opacity:1; pointer-events:auto; }
+.back-top:hover { transform:translateY(-3px); }
+/* ==================== 滚动条 ==================== */
+.sidebar::-starting-style { }
+.sidebar::-webkit-scrollbar, .code-block pre code::-webkit-scrollbar { width:6px; height:6px; }
+.sidebar::-webkit-scrollbar-track, .code-block pre code::-webkit-scrollbar-track { background:transparent; }
+.sidebar::-webkit-scrollbar-thumb, .code-block pre code::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+/* ==================== 响应式 ==================== */
+@media (max-width:1024px) {
+  .sidebar { transform:translateX(-100%); }
+  .sidebar.open { transform:translateX(0); }
+  .content { margin-left:0; padding:32px 24px 80px; }
+  .menu-toggle { display:flex; }
+}
+.menu-toggle {
+  width:40px; height:40px; border-radius:10px; border:1px solid var(--border);
+  background:var(--bg-secondary); cursor:pointer; font-size:18px;
+  align-items:center; justify-content:center; margin-right:12px;
+}
+/* ==================== ASCII 图 ==================== */
+.ascii-art {
+  background:var(--bg-code); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:20px; margin:16px 0 24px; overflow-x:auto;
+  font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.5;
+  white-space:pre; color:var(--text-secondary);
+}
+/* ==================== 分割线 ==================== */
+hr { border:none; border-top:1px solid var(--border); margin:40px 0; }
+/* ==================== FAQ ==================== */
+.faq-item { border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden; }
+.faq-q { padding:16px 20px; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); }
+.faq-q::after { content:'\\25BC'; font-size:12px; color:var(--text-muted); transition:transform .2s; }
+.faq-q.open::after { transform:rotate(180deg); }
+.faq-a { max-height:0; overflow:hidden; transition:max-height .3s ease; }
+.faq-a.open { max-height:500px; }
+.faq-a-inner { padding:16px 20px; }
+</style>
+</head>
+<body>
+
+<!-- ===== 顶部栏 ===== -->
+<div class="topbar">
+  <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <span>Seata</span>&nbsp;分布式事务教程
+  </div>
+  <div class="topbar-right">
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</div>
+
+<!-- ===== 侧边栏 ===== -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-title">目录导航</div>
+  <nav>
+    <a href="#ch1">一、Seata 简介</a>
+    <a href="#ch1-why" class="sub">为什么需要分布式事务</a>
+    <a href="#ch1-modes" class="sub">事务模式对比</a>
+    <a href="#ch2">二、核心概念</a>
+    <a href="#ch2-roles" class="sub">TC / TM / RM</a>
+    <a href="#ch2-flow" class="sub">AT 模式工作流程</a>
+    <a href="#ch3">三、版本说明与兼容性</a>
+    <a href="#ch4">四、环境准备</a>
+    <a href="#ch5">五、Seata Server 配置</a>
+    <a href="#ch5-app" class="sub">application.yml</a>
+    <a href="#ch5-table" class="sub">Server 建表</a>
+    <a href="#ch6">六、数据库准备</a>
+    <a href="#ch7">七、案例项目结构</a>
+    <a href="#ch8">八、核心代码与配置</a>
+    <a href="#ch8-pom" class="sub">父 POM 依赖</a>
+    <a href="#ch8-common" class="sub">公共模块</a>
+    <a href="#ch8-order" class="sub">订单服务</a>
+    <a href="#ch8-storage" class="sub">库存服务</a>
+    <a href="#ch8-account" class="sub">账户服务</a>
+    <a href="#ch8-summary" class="sub">AT 模式总结</a>
+    <a href="#ch9">九、启动与测试</a>
+    <a href="#ch10">十、常见问题</a>
+  </nav>
+</aside>
+
+<!-- ===== 主内容 ===== -->
+<main class="content">
+
+<!-- Hero -->
+<div class="hero">
+  <span class="badge badge-green">Spring Cloud Alibaba</span>
+  <span class="badge badge-blue">Seata AT 模式</span>
+  <h1>Spring Cloud Alibaba Seata 分布式事务教程</h1>
+  <p class="subtitle">模拟电商下单流程 — 创建订单 → 扣减库存 → 扣减账户余额，任一步骤失败则全局回滚</p>
+  <div class="tech-stack">
+    <span>Spring Boot 3.5.0</span>
+    <span>Spring Cloud 2025.0.0</span>
+    <span>Spring Cloud Alibaba 2025.0.0.0</span>
+    <span>Nacos 3.x</span>
+    <span>Seata 2.5.0</span>
+    <span>JDK 17+</span>
+    <span>MyBatis</span>
+    <span>MySQL</span>
+  </div>
+</div>
+
+<!-- ==================== 第一章 ==================== -->
+<h2 id="ch1">一、Seata 简介</h2>
+
+<p><strong>Seata</strong>（Simple Extensible Autonomous Transaction Architecture）是阿里巴巴开源的分布式事务解决方案，致力于提供高性能和简单易用的分布式事务服务。</p>
+
+<h3 id="ch1-why">为什么需要分布式事务？</h3>
+
+<p>在微服务架构中，一个业务操作往往涉及多个服务和多个数据库。例如"下单"操作需要：</p>
+
+<div class="ascii-art">订单服务(写订单) → 库存服务(扣库存) → 账户服务(扣余额)</div>
+
+<p>这三个操作分布在不同的服务和数据库中，本地事务无法保证它们的一致性。如果扣完库存后账户余额不足，库存已经扣减却无法自动回滚，就会造成数据不一致。Seata 就是为了解决这个问题。</p>
+
+<h3 id="ch1-modes">Seata 支持的事务模式</h3>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>模式</th><th>说明</th><th>适用场景</th></tr></thead>
+<tbody>
+<tr><td><strong>AT</strong></td><td>自动补偿模式，无侵入，Seata 自动生成反向 SQL 回滚</td><td>大多数业务场景（<strong>本教程使用</strong>）</td></tr>
+<tr><td><strong>TCC</strong></td><td>Try-Confirm-Cancel，需要自定义三个方法</td><td>需要精细控制的高性能场景</td></tr>
+<tr><td><strong>SAGA</strong></td><td>长事务模式，通过补偿事务回滚</td><td>业务流程长、涉及第三方系统</td></tr>
+<tr><td><strong>XA</strong></td><td>基于 XA 协议，强一致性</td><td>对一致性要求极高的场景</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>本教程使用 <strong>AT 模式</strong>，因为它对业务零侵入——只需加一个 <code>@GlobalTransactional</code> 注解即可。</p>
+
+<hr>
+
+<!-- ==================== 第二章 ==================== -->
+<h2 id="ch2">二、核心概念</h2>
+
+<p>理解以下三个角色是理解 Seata 的基础：</p>
+
+<div class="ascii-art">         ┌──────────────────────────────────────────┐
+         │           TC (Transaction Coordinator)    │
+         │           事务协调者 = Seata Server        │
+         │   维护全局事务状态, 决定提交或回滚          │
+         └──────┬───────────────────┬───────────────┘
+                │                   │
+     ┌──────────┴──┐          ┌─────┴──────────┐
+     │  TM (事务    │          │  RM (资源       │
+     │  管理器)     │          │  管理器)        │
+     │  开启/提交/  │          │  管理分支事务    │
+     │  回滚全局事务│          │  执行SQL+undo   │
+     └─────────────┘          └────────────────┘
+       订单服务                  库存服务/账户服务</div>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>角色</th><th>全称</th><th>职责</th><th>本教程对应</th></tr></thead>
+<tbody>
+<tr><td><strong>TC</strong></td><td>Transaction Coordinator</td><td>事务协调者，独立部署的 Seata Server，维护全局和分支事务状态</td><td>seata-server</td></tr>
+<tr><td><strong>TM</strong></td><td>Transaction Manager</td><td>事务管理器，定义全局事务范围（开启、提交、回滚）</td><td>订单服务 OrderService</td></tr>
+<tr><td><strong>RM</strong></td><td>Resource Manager</td><td>资源管理器，管理分支事务上的本地资源（数据库）</td><td>库存服务、账户服务</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="ch2-flow">AT 模式工作流程</h3>
+
+<div class="ascii-art">TM                        TC                        RM
+ │                         │                         │
+ │  1. 开启全局事务          │                         │
+ │ ──────────────────────> │                         │
+ │  返回 XID (全局事务ID)    │                         │
+ │ <────────────────────── │                         │
+ │                         │                         │
+ │  2. 执行分支事务(带XID)  ──────────────────────>  │
+ │                         │  3. 注册分支事务          │
+ │                         │ <─────────────────────  │
+ │                         │  4. 执行SQL + 记录undo   │
+ │                         │  5. 上报分支状态          │
+ │                         │ <─────────────────────  │
+ │                         │                         │
+ │  6. 全局提交/回滚         │                         │
+ │ ──────────────────────> │                         │
+ │                         │  7. 提交:异步删undo      │
+ │                         │     回滚:通知RM补偿       │
+ │                         │ ──────────────────────> │</div>
+
+<div class="alert alert-info">
+  <div class="alert-icon">💡</div>
+  <div class="alert-body">
+    <p><strong>关键点</strong>：AT 模式通过 <code>undo_log</code> 表记录数据变更前后的镜像，回滚时根据前镜像自动生成反向 SQL 执行补偿，对业务代码完全透明。</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ==================== 第三章 ==================== -->
+<h2 id="ch3">三、版本说明与兼容性</h2>
+
+<h3>版本组合（经过官方兼容验证）</h3>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>组件</th><th>版本</th></tr></thead>
+<tbody>
+<tr><td>Spring Boot</td><td>3.5.0</td></tr>
+<tr><td>Spring Cloud</td><td>2025.0.0</td></tr>
+<tr><td>Spring Cloud Alibaba</td><td>2025.0.0.0</td></tr>
+<tr><td>Seata</td><td>2.5.0（由 SCA BOM 管理）</td></tr>
+<tr><td>Nacos Client</td><td>3.0.3（由 SCA BOM 管理）</td></tr>
+<tr><td>JDK</td><td>17+</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="alert alert-info">
+  <div class="alert-icon">ℹ️</div>
+  <div class="alert-body">
+    <p><strong>版本兼容性说明</strong></p>
+    <p>本教程采用 Spring Cloud Alibaba 官方兼容矩阵中 <strong>2025.0.0.0</strong> 稳定版对应的组合。该组合的对应关系如下：</p>
+  </div>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>Spring Cloud Alibaba</th><th>Spring Cloud</th><th>Spring Boot</th><th>JDK</th><th>Seata</th><th>Nacos</th></tr></thead>
+<tbody>
+<tr><td><strong>2025.0.0.0</strong></td><td>2025.0.0</td><td>3.5.0</td><td>17+</td><td>2.5.0</td><td>3.0.3</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="alert alert-warn">
+  <div class="alert-icon">⚠️</div>
+  <div class="alert-body">
+    <p><strong>Spring Boot 3.x 关键变更</strong></p>
+    <ul>
+      <li>全面使用 Jakarta EE 命名空间（<code>javax.*</code> → <code>jakarta.*</code>）</li>
+      <li>MySQL 驱动坐标变更（<code>mysql:mysql-connector-java</code> → <code>com.mysql:mysql-connector-j</code>）</li>
+      <li>Druid 需使用 <code>druid-spring-boot-3-starter</code></li>
+      <li>MyBatis Spring Boot Starter 需 3.0+</li>
+      <li>Seata 已成为 Apache 顶级项目，Maven groupId 变更为 <code>org.apache.seata</code></li>
+      <li>Spring Cloud 2025 移除了 Ribbon 和 Hystrix，负载均衡使用 Spring Cloud LoadBalancer</li>
+    </ul>
+  </div>
+</div>
+
+<hr>
+
+<!-- ==================== 第四章 ==================== -->
+<h2 id="ch4">四、环境准备</h2>
+
+<h3>4.1 所需软件</h3>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>软件</th><th>版本</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>JDK</td><td>17+</td><td>Spring Boot 3.x 最低要求 JDK 17</td></tr>
+<tr><td>MySQL</td><td>8.0+</td><td>需创建 4 个数据库</td></tr>
+<tr><td>Nacos Server</td><td>3.x</td><td>注册中心 (服务发现)</td></tr>
+<tr><td>Seata Server</td><td>2.5.0</td><td>事务协调者 (TC)</td></tr>
+<tr><td>Maven</td><td>3.6+</td><td>项目构建</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>4.2 环境启动顺序</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">text</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>1. 启动 MySQL (创建数据库和表)
+2. 启动 Nacos Server
+3. 启动 Seata Server
+4. 启动业务服务 (storage → account → order)
+5. 测试下单接口</code></pre>
+</div>
+
+<h3>4.3 Nacos 启动</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-bash"># 下载 Nacos 3.x 后解压, 进入 bin 目录
+sh startup.sh -m standalone   # Linux/Mac
+startup.cmd -m standalone      # Windows
+
+# 访问控制台: http://localhost:8848/nacos
+# 默认账号密码: nacos / nacos</code></pre>
+</div>
+
+<hr>
+
+<!-- ==================== 第五章 ==================== -->
+<h2 id="ch5">五、Seata Server 安装与配置（配置文件解释）</h2>
+
+<h3>5.1 下载 Seata Server</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-bash"># 下载 Apache Seata 2.5.0
+# 官方下载页: https://github.com/apache/incubator-seata/releases
+# 解压后目录结构:
+# seata-server-2.5.0/
+# ├── bin/          # 启动脚本
+# │   ├── seata-server.sh
+# │   └── seata-server.bat
+# ├── conf/         # 配置文件
+# │   └── application.yml    # (2.0+ 推荐) 主配置 (注册中心 + 存储模式)
+# └── lib/          # 依赖 jar</code></pre>
+</div>
+
+<h3>5.2 配置文件详解</h3>
+
+<p>Seata 2.0+ 推荐使用 <code>application.yml</code> 作为唯一配置文件，替代旧版的 <code>registry.conf</code> + <code>file.conf</code>。本教程仅使用 <code>application.yml</code>，所有配置（注册中心、存储模式等）在此文件中统一管理。</p>
+
+<h4 id="ch5-app">5.2.1 application.yml（推荐，Seata 2.0+）</h4>
+
+<p>文件位置：<code>seata-server/conf/application.yml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-yaml">server:
+  port: 7091                    # Seata Web 控制台端口 (注意: 不是 TC 通信端口)
+
+seata:
+  console:
+    user:
+      username: seata           # 控制台登录用户名
+      password: seata           # 控制台登录密码
+
+  # ==================== 注册中心 ====================
+  # Seata Server 将自己注册到 Nacos, 客户端通过 Nacos 发现 TC
+  registry:
+    type: nacos                 # 注册中心类型: nacos
+    nacos:
+      application: seata-server # 注册的服务名 (客户端据此查找)
+      server-addr: 127.0.0.1:8848  # Nacos 地址
+      group: SEATA_GROUP        # 注册的分组
+      namespace: ''             # 命名空间 (空 = public)
+      cluster: default          # 集群名称 ★ 客户端必须与此一致
+
+  # ==================== 存储模式 ====================
+  # 所有存储配置直接在本地管理
+  store:
+    mode: db                    # ★ 存储: file/db/redis, 推荐 db
+    db:
+      datasource: druid         # 连接池
+      db-type: mysql            # 数据库类型
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      # ★ 完整数据库连接 URL (指向 seata_server 库, 需提前建好表)
+      url: jdbc:mysql://127.0.0.1:3306/seata_server?useUnicode=true&amp;characterEncoding=utf-8&amp;useSSL=false&amp;serverTimezone=Asia/Shanghai
+      user: root                # 数据库用户名
+      password: root            # 数据库密码
+      min-conn: 5               # 最小连接数
+      max-conn: 30              # 最大连接数
+      global-table: global_table        # 全局事务表
+      branch-table: branch_table        # 分支事务表
+      lock-table: lock_table            # 全局锁表
+      distributed-lock-table: distributed_lock  # 分布式锁表
+      query-limit: 100          # 单次查询最大行数
+      max-wait: 5000            # 获取连接最大等待时间 (ms)</code></pre>
+</div>
+
+<p><strong>关键配置说明：</strong></p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>配置项</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>server.port: 7091</code></td><td>Seata 控制台端口，<strong>不是</strong> TC 通信端口。TC 默认通信端口为 8091</td></tr>
+<tr><td><code>registry.type: nacos</code></td><td>Seata Server 注册到 Nacos，客户端从 Nacos 发现 TC</td></tr>
+<tr><td><code>store.mode: db</code></td><td>事务日志存储到数据库，支持 Server 集群。file 模式仅支持单机</td></tr>
+<tr><td><code>store.db.url</code></td><td>完整的数据库连接 URL，指向 <code>seata_server</code> 库（需提前建好 4 张表）</td></tr>
+<tr><td><code>cluster: default</code></td><td>集群名称，客户端的 <code>seata.registry.nacos.cluster</code> 必须与此一致</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="alert alert-info">
+  <div class="alert-icon">ℹ️</div>
+  <div class="alert-body">
+    <p><strong>说明</strong>：所有 Seata 配置在本地 <code>application.yml</code> 中管理，简洁直观。</p>
+  </div>
+</div>
+
+<h3 id="ch5-table">5.3 Seata Server 建表</h3>
+
+<p>Seata Server 在 <code>db</code> 存储模式下需要 4 张表（见 <code>sql/seata-server.sql</code>）：</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>表名</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>global_table</code></td><td>全局事务表，记录每个全局事务的 XID、状态、超时时间</td></tr>
+<tr><td><code>branch_table</code></td><td>分支事务表，记录每个分支事务的信息</td></tr>
+<tr><td><code>lock_table</code></td><td>全局锁表，AT 模式下实现写隔离</td></tr>
+<tr><td><code>distributed_lock</code></td><td>分布式锁表，TC 集群选主用</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-sql">-- 执行 sql/seata-server.sql, 在 seata_server 库中创建以上 4 张表
+CREATE DATABASE IF NOT EXISTS `seata_server` DEFAULT CHARACTER SET utf8mb4;
+USE `seata_server`;
+-- 然后执行 seata-server.sql 中的建表语句</code></pre>
+</div>
+
+<h3>5.4 启动 Seata Server</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-bash"># Linux/Mac
+sh bin/seata-server.sh
+
+# Windows
+bin\seata-server.bat
+
+# 后台启动 (Linux)
+nohup sh bin/seata-server.sh > seata.log 2>&1 &
+
+# 启动后验证:
+# 1. 查看 Nacos 控制台 → 服务列表, 应出现 seata-server 服务
+# 2. 访问 http://localhost:7091 (控制台, 账号 seata/seata)</code></pre>
+</div>
+
+<hr>
+
+<!-- ==================== 第六章 ==================== -->
+<h2 id="ch6">六、数据库准备（SQL 解释）</h2>
+
+<h3>7.1 数据库总览</h3>
+
+<p>本案例需要 4 个数据库：</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>数据库</th><th>用途</th><th>表</th></tr></thead>
+<tbody>
+<tr><td><code>seata_server</code></td><td>Seata Server 存储</td><td>global_table, branch_table, lock_table, distributed_lock</td></tr>
+<tr><td><code>seata_order</code></td><td>订单业务库</td><td>t_order, undo_log</td></tr>
+<tr><td><code>seata_storage</code></td><td>库存业务库</td><td>t_storage, undo_log</td></tr>
+<tr><td><code>seata_account</code></td><td>账户业务库</td><td>t_account, undo_log</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>7.2 SQL 文件说明</h3>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>文件</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>sql/seata-server.sql</code></td><td>Seata Server 的 4 张存储表</td></tr>
+<tr><td><code>sql/business-db.sql</code></td><td>3 个业务库的建表语句 + 初始数据 + undo_log</td></tr>
+<tr><td><code>sql/undo_log.sql</code></td><td>undo_log 表独立建表语句（已在 business-db.sql 中包含）</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>7.3 执行顺序</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-sql">-- 1. 创建 Seata Server 存储库 (执行 sql/seata-server.sql)
+-- 2. 创建业务库 (执行 sql/business-db.sql)</code></pre>
+</div>
+
+<h3>7.4 undo_log 表解释</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-sql">CREATE TABLE `undo_log` (
+    `branch_id`     BIGINT       NOT NULL COMMENT '分支事务ID',
+    `xid`           VARCHAR(128) NOT NULL COMMENT '全局事务ID',
+    `context`       VARCHAR(128) NOT NULL COMMENT '序列化上下文',
+    `rollback_info` LONGTEXT     NOT NULL COMMENT '回滚信息(前镜像+后镜像)',
+    `log_status`    INT          NOT NULL COMMENT '0:正常 1:防悬挂',
+    `log_created`   DATETIME(6)  NOT NULL COMMENT '创建时间',
+    `log_modified`  DATETIME(6)  NOT NULL COMMENT '修改时间',
+    UNIQUE KEY `ux_undo_log` (`xid`, `branch_id`)
+);</code></pre>
+</div>
+
+<p><strong>工作原理</strong>：</p>
+<ul>
+<li>AT 模式下，Seata 自动代理数据源</li>
+<li>执行业务 SQL <strong>前</strong>：解析 SQL，查询变更前的数据（<strong>前镜像 before image</strong>），存入 <code>rollback_info</code></li>
+<li>执行业务 SQL <strong>后</strong>：查询变更后的数据（<strong>后镜像 after image</strong>），存入 <code>rollback_info</code></li>
+<li><strong>全局回滚时</strong>：RM 根据 <code>rollback_info</code> 中的前镜像，生成反向 SQL 执行补偿</li>
+<li><strong>全局提交时</strong>：TC 异步通知 RM 删除对应的 undo_log 记录</li>
+</ul>
+
+<h3>7.5 业务表结构与初始数据</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-sql">-- t_order: 订单表
+CREATE TABLE `t_order` (
+    `id`         BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id`    BIGINT DEFAULT NULL COMMENT '用户ID',
+    `product_id` BIGINT DEFAULT NULL COMMENT '产品ID',
+    `count`      INT    DEFAULT NULL COMMENT '数量',
+    `money`      DECIMAL(11,0) DEFAULT NULL COMMENT '金额',
+    `status`     INT    DEFAULT NULL COMMENT '0-创建中 1-已完成',
+    PRIMARY KEY (`id`)
+);
+
+-- t_storage: 库存表 (初始: 产品1, 总库存100, 剩余100)
+CREATE TABLE `t_storage` (
+    `id`         BIGINT NOT NULL AUTO_INCREMENT,
+    `product_id` BIGINT DEFAULT NULL,
+    `total`      INT    DEFAULT NULL COMMENT '总库存',
+    `used`       INT    DEFAULT NULL COMMENT '已用',
+    `residue`    INT    DEFAULT NULL COMMENT '剩余',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO `t_storage` VALUES (1, 1, 100, 0, 100);
+
+-- t_account: 账户表 (初始: 用户1, 总额1000, 剩余1000)
+CREATE TABLE `t_account` (
+    `id`      BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT DEFAULT NULL,
+    `total`   DECIMAL(11,0) DEFAULT NULL COMMENT '总额度',
+    `used`    DECIMAL(11,0) DEFAULT NULL COMMENT '已用',
+    `residue` DECIMAL(11,0) DEFAULT '0' COMMENT '剩余',
+    PRIMARY KEY (`id`)
+);
+INSERT INTO `t_account` VALUES (1, 1, 1000, 0, 1000);</code></pre>
+</div>
+
+<hr>
+
+<!-- ==================== 第七章 ==================== -->
+<h2 id="ch7">七、案例项目结构与业务说明</h2>
+
+<h3>7.1 业务流程</h3>
+
+<div class="ascii-art">用户下单 (HTTP)
+    │
+    ▼
+┌──────────────────────────────────────────────────────────────┐
+│  订单服务 (TM)          库存服务 (RM)      账户服务 (RM)       │
+│  seata-order-service    seata-storage-service  seata-account-service │
+│                                                                │
+│  @GlobalTransactional                                          │
+│  1. 创建订单 ──> 写入 seata_order.t_order                      │
+│  2. Feign调用 ──> 扣减 seata_storage.t_storage (库存)          │
+│  3. Feign调用 ───────────────────────> 扣减 seata_account.t_account (余额) │
+│  4. 更新订单状态                                                │
+│                                                                │
+│  任一步骤失败 → 全局回滚 → 所有分支事务自动补偿                 │
+└──────────────────────────────────────────────────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+    seata_order 库      seata_storage 库      seata_account 库
+    (t_order+undo_log)  (t_storage+undo_log)  (t_account+undo_log)</div>
+
+<h3>7.2 项目结构</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">text</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>seata-demo/                          # 父工程
+├── pom.xml                          # 父 POM, 管理依赖版本
+├── seata-common/                    # 公共模块
+│   └── src/main/java/com/example/common/entity/
+│       ├── Order.java               # 订单实体
+│       └── CommonResult.java        # 统一返回结果
+├── seata-order-service/             # 订单服务 (TM)
+│   └── src/main/java/com/example/order/
+│       ├── OrderServiceApplication.java   # 启动类
+│       ├── controller/OrderController.java
+│       ├── service/OrderService.java       # ★ @GlobalTransactional
+│       ├── mapper/OrderMapper.java
+│       └── feign/
+│           ├── StorageFeignService.java    # 调用库存服务
+│           └── AccountFeignService.java    # 调用账户服务
+├── seata-storage-service/           # 库存服务 (RM)
+│   └── src/main/java/com/example/storage/
+│       ├── StorageServiceApplication.java
+│       ├── controller/StorageController.java
+│       ├── service/StorageService.java
+│       └── mapper/StorageMapper.java
+├── seata-account-service/           # 账户服务 (RM)
+│   └── src/main/java/com/example/account/
+│       ├── AccountServiceApplication.java
+│       ├── controller/AccountController.java
+│       ├── service/AccountService.java     # ★ 超时回滚演示
+│       └── mapper/AccountMapper.java</code></pre>
+</div>
+
+<h3>7.3 端口分配</h3>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>服务</th><th>端口</th><th>数据库</th></tr></thead>
+<tbody>
+<tr><td>Seata Server (控制台)</td><td>7091</td><td>seata_server</td></tr>
+<tr><td>Seata Server (TC通信)</td><td>8091</td><td>-</td></tr>
+<tr><td>Nacos</td><td>8848</td><td>-</td></tr>
+<tr><td>订单服务</td><td>2001</td><td>seata_order</td></tr>
+<tr><td>库存服务</td><td>2002</td><td>seata_storage</td></tr>
+<tr><td>账户服务</td><td>2003</td><td>seata_account</td></tr>
+</tbody>
+</table>
+</div>
+
+<hr>
+
+<!-- ==================== 第八章 ==================== -->
+<h2 id="ch8">八、核心代码与配置文件解释</h2>
+
+<h3 id="ch8-pom">8.1 父 POM 依赖管理</h3>
+
+<p>文件：<code>code/pom.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;groupId&gt;com.example&lt;/groupId&gt;
+    &lt;artifactId&gt;seata-demo&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;packaging&gt;pom&lt;/packaging&gt;
+    &lt;name&gt;seata-demo&lt;/name&gt;
+    &lt;description&gt;Spring Cloud Alibaba Seata 分布式事务教程案例&lt;/description&gt;
+
+    &lt;!-- ==================== 子模块 ==================== --&gt;
+    &lt;modules&gt;
+        &lt;module&gt;seata-common&lt;/module&gt;
+        &lt;module&gt;seata-order-service&lt;/module&gt;
+        &lt;module&gt;seata-storage-service&lt;/module&gt;
+        &lt;module&gt;seata-account-service&lt;/module&gt;
+    &lt;/modules&gt;
+
+    &lt;!-- ==================== 版本声明 ==================== --&gt;
+    &lt;properties&gt;
+        &lt;java.version&gt;17&lt;/java.version&gt;
+        &lt;maven.compiler.source&gt;17&lt;/maven.compiler.source&gt;
+        &lt;maven.compiler.target&gt;17&lt;/maven.compiler.target&gt;
+        &lt;project.build.sourceEncoding&gt;UTF-8&lt;/project.build.sourceEncoding&gt;
+
+        &lt;!-- 核心框架版本 (兼容组合) --&gt;
+        &lt;spring-boot.version&gt;3.5.0&lt;/spring-boot.version&gt;
+        &lt;spring-cloud.version&gt;2025.0.0&lt;/spring-cloud.version&gt;
+        &lt;spring-cloud-alibaba.version&gt;2025.0.0.0&lt;/spring-cloud-alibaba.version&gt;
+
+        &lt;!-- Seata 版本 (Server 独立部署版本, 客户端由 SCA BOM 管理) --&gt;
+        &lt;seata.version&gt;2.5.0&lt;/seata.version&gt;
+
+        &lt;!-- Spring Boot 3.x 兼容依赖 --&gt;
+        &lt;mybatis-spring-boot.version&gt;3.0.4&lt;/mybatis-spring-boot.version&gt;
+        &lt;mysql-connector.version&gt;9.2.0&lt;/mysql-connector.version&gt;
+        &lt;druid.version&gt;1.2.27&lt;/druid.version&gt;
+        &lt;lombok.version&gt;1.18.38&lt;/lombok.version&gt;
+    &lt;/properties&gt;
+
+    &lt;!-- ==================== 依赖管理 (BOM) ==================== --&gt;
+    &lt;dependencyManagement&gt;
+        &lt;dependencies&gt;
+            &lt;!-- Spring Boot BOM --&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-boot-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-boot.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+            &lt;!-- Spring Cloud BOM --&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-cloud-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-cloud.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+            &lt;!-- Spring Cloud Alibaba BOM (管理 seata/nacos/sentinel 版本) --&gt;
+            &lt;dependency&gt;
+                &lt;groupId&gt;com.alibaba.cloud&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-cloud-alibaba-dependencies&lt;/artifactId&gt;
+                &lt;version&gt;${spring-cloud-alibaba.version}&lt;/version&gt;
+                &lt;type&gt;pom&lt;/type&gt;
+                &lt;scope&gt;import&lt;/scope&gt;
+            &lt;/dependency&gt;
+        &lt;/dependencies&gt;
+    &lt;/dependencyManagement&gt;
+
+    &lt;!-- ==================== 公共依赖 (所有子模块继承) ==================== --&gt;
+    &lt;dependencies&gt;
+        &lt;!-- Spring Boot Web --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;!-- Nacos 服务注册发现 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.alibaba.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-alibaba-nacos-discovery&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;!-- Seata AT 模式 (已包含 seata-spring-boot-starter:2.5.0) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.alibaba.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-alibaba-seata&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;!-- MyBatis (Spring Boot 3.x 需 3.0+) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.mybatis.spring.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;mybatis-spring-boot-starter&lt;/artifactId&gt;
+            &lt;version&gt;${mybatis-spring-boot.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- MySQL 驱动 (Spring Boot 3.x 新坐标) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.mysql&lt;/groupId&gt;
+            &lt;artifactId&gt;mysql-connector-j&lt;/artifactId&gt;
+            &lt;version&gt;${mysql-connector.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- Druid 连接池 (Spring Boot 3.x 需 druid-spring-boot-3-starter) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.alibaba&lt;/groupId&gt;
+            &lt;artifactId&gt;druid-spring-boot-3-starter&lt;/artifactId&gt;
+            &lt;version&gt;${druid.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;!-- Lombok --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+            &lt;version&gt;${lombok.version}&lt;/version&gt;
+            &lt;scope&gt;provided&lt;/scope&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+
+    &lt;build&gt;
+        &lt;plugins&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+                &lt;version&gt;${spring-boot.version}&lt;/version&gt;
+            &lt;/plugin&gt;
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+&lt;/project&gt;</code></pre>
+</div>
+
+<p>父 POM 负责统一管理版本号、引入三个 BOM、声明所有子模块共享的公共依赖，子模块自动继承无需重复声明。</p>
+
+<p><strong>说明</strong>：</p>
+<ul>
+<li>三个 BOM 通过 <code>import</code> 方式引入，统一管理依赖版本</li>
+<li>公共依赖（web、nacos-discovery、seata、mybatis、mysql、druid）在父 POM 声明，子模块自动继承</li>
+<li><code>spring-cloud-starter-alibaba-seata</code> 已包含 <code>org.apache.seata:seata-spring-boot-starter:2.5.0</code>（由 SCA BOM 管理），无需在子模块中手动指定版本</li>
+<li>Spring Boot 3.x 使用 <code>com.mysql:mysql-connector-j</code>（非旧版 <code>mysql:mysql-connector-java</code>）</li>
+<li>Spring Boot 3.x 使用 <code>druid-spring-boot-3-starter</code>（非旧版 <code>druid-spring-boot-starter</code>）</li>
+</ul>
+
+
+<h3 id="ch8-common">8.2 公共模块（seata-common）</h3>
+
+<p>公共模块提供实体类和统一返回结果，供三个业务服务共享依赖。</p>
+
+<p><strong>pom.xml</strong> — 文件：<code>code/seata-common/pom.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;!-- 继承父 POM, 自动获得公共依赖 --&gt;
+    &lt;parent&gt;
+        &lt;groupId&gt;com.example&lt;/groupId&gt;
+        &lt;artifactId&gt;seata-demo&lt;/artifactId&gt;
+        &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;/parent&gt;
+
+    &lt;artifactId&gt;seata-common&lt;/artifactId&gt;
+    &lt;name&gt;seata-common&lt;/name&gt;
+    &lt;description&gt;公共模块: 实体类、统一返回结果&lt;/description&gt;
+
+    &lt;dependencies&gt;
+        &lt;!-- 仅需 Web 依赖 (由父 POM 继承, 提供 Spring MVC 基础) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+&lt;/project&gt;</code></pre>
+</div>
+
+<p>公共模块只需继承父 POM 并引入 <code>spring-boot-starter-web</code>，不需要 Seata、数据库等依赖。其他服务通过依赖 <code>seata-common</code> 即可使用 <code>CommonResult</code> 和 <code>Order</code> 实体类。</p>
+
+<p><strong>CommonResult.java</strong> — 统一返回结果：</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CommonResult&lt;T&gt; {
+    private Integer code;    // 状态码: 200-成功, 500-失败
+    private String message;  // 提示信息
+    private T data;          // 返回数据
+
+    public static &lt;T&gt; CommonResult&lt;T&gt; success(T data) {
+        return new CommonResult&lt;&gt;(200, "操作成功", data);
+    }
+
+    public static &lt;T&gt; CommonResult&lt;T&gt; failed(String message) {
+        return new CommonResult&lt;&gt;(500, message, null);
+    }
+}</code></pre>
+</div>
+
+<p><strong>Order.java</strong> — 订单实体：</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class Order implements Serializable {
+    private Long id;          // 主键
+    private Long userId;      // 用户ID
+    private Long productId;   // 产品ID
+    private Integer count;    // 购买数量
+    private BigDecimal money; // 订单金额
+    private Integer status;   // 订单状态: 0-创建中, 1-已完成
+}</code></pre>
+</div>
+
+<h3 id="ch8-order">8.3 订单服务（seata-order-service）</h3>
+
+<p>订单服务是整个分布式事务的 <strong>TM（事务管理器）</strong>，通过 <code>@GlobalTransactional</code> 开启全局事务，协调库存服务和账户服务。</p>
+
+<h4>8.3.1 pom.xml 依赖</h4>
+
+<p>文件：<code>code/seata-order-service/pom.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;parent&gt;
+        &lt;groupId&gt;com.example&lt;/groupId&gt;
+        &lt;artifactId&gt;seata-demo&lt;/artifactId&gt;
+        &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;/parent&gt;
+
+    &lt;artifactId&gt;seata-order-service&lt;/artifactId&gt;
+    &lt;name&gt;seata-order-service&lt;/name&gt;
+    &lt;description&gt;订单服务 - TM角色, 发起全局事务&lt;/description&gt;
+
+    &lt;dependencies&gt;
+        &lt;!-- 公共模块 (CommonResult, Order 实体) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.example&lt;/groupId&gt;
+            &lt;artifactId&gt;seata-common&lt;/artifactId&gt;
+            &lt;version&gt;1.0.0&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- OpenFeign: 声明式 HTTP 调用 --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-openfeign&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- Spring Cloud LoadBalancer (SC 2025 移除了 Ribbon, 需显式引入) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.cloud&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-cloud-starter-loadbalancer&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- 注意: 不需要显式声明 seata-spring-boot-starter
+             父 pom 的 spring-cloud-starter-alibaba-seata 已包含
+             org.apache.seata:seata-spring-boot-starter:2.5.0 --&gt;
+    &lt;/dependencies&gt;
+&lt;/project&gt;</code></pre>
+</div>
+
+<p>订单服务比公共模块多引入了 OpenFeign 和 LoadBalancer，用于远程调用库存和账户服务。Seata 依赖已由父 POM 统一引入。</p>
+
+<h4>8.3.2 application.yml 配置详解</h4>
+
+<p>文件：<code>code/seata-order-service/src/main/resources/application.yml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-yaml">server:
+  port: 2001
+
+spring:
+  application:
+    name: seata-order-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: public
+        group: SEATA_GROUP
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/seata_order?...
+    username: root
+    password: root
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+seata:
+  enabled: true
+  application-id: ${spring.application.name}
+  tx-service-group: default_tx_group
+  enable-auto-data-source-proxy: true
+  data-source-proxy-mode: AT
+  service:
+    vgroup-mapping:
+      default_tx_group: default
+    grouplist:
+      default: 127.0.0.1:8091
+  registry:
+    type: nacos
+    nacos:
+      application: seata-server
+      server-addr: 127.0.0.1:8848
+      group: SEATA_GROUP
+      cluster: default
+
+# Feign 超时配置: 正常下游响应 < 1s, 5s 足够;
+# 超时回滚测试时 account.sleep=true 会 sleep 20s > 5s, 触发 Feign 超时
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 5000</code></pre>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>配置项</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>tx-service-group</code></td><td>事务组名称，通过 <code>vgroup-mapping</code> 找到 TC 集群</td></tr>
+<tr><td><code>enable-auto-data-source-proxy</code></td><td>AT 模式核心：Seata 代理 JDBC，自动记录 undo_log</td></tr>
+<tr><td><code>service.vgroup-mapping</code></td><td>事务组→集群映射，本地配置</td></tr>
+<tr><td><code>registry.type: nacos</code></td><td>从 Nacos 发现 TC 地址</td></tr>
+<tr><td><code>cluster: default</code></td><td>集群名称，必须与 Seata Server 一致</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>8.3.3 启动类（OrderServiceApplication）</h4>
+
+<p>文件：<code>code/seata-order-service/src/main/java/com/example/order/OrderServiceApplication.java</code></p>
+
+<pre><code class="language-java">package com.example.order;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+/**
+ * 订单服务启动类
+ *
+ * - @EnableDiscoveryClient: 注册到 Nacos
+ * - @EnableFeignClients: 开启 Feign 声明式调用
+ */
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients
+public class OrderServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OrderServiceApplication.class, args);
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>注解</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>@SpringBootApplication</code></td><td>Spring Boot 核心注解，包含 <code>@Configuration</code> + <code>@EnableAutoConfiguration</code> + <code>@ComponentScan</code></td></tr>
+<tr><td><code>@EnableDiscoveryClient</code></td><td>将服务注册到 Nacos 注册中心，其他服务可通过服务名发现并调用</td></tr>
+<tr><td><code>@EnableFeignClients</code></td><td>开启 OpenFeign 声明式 HTTP 调用，扫描 <code>@FeignClient</code> 接口并生成代理实现</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>订单服务作为 TM（事务管理器），需要 <code>@EnableFeignClients</code> 来远程调用库存和账户服务。Seata 的 <code>@GlobalTransactional</code> 不需要在启动类上声明，直接在 Service 方法上使用即可。</p></blockquote>
+
+<h4>8.3.4 OrderController — 下单入口</h4>
+
+<p>文件：<code>code/seata-order-service/src/main/java/com/example/order/controller/OrderController.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@RestController
+public class OrderController {
+
+    @Resource
+    private OrderService orderService;
+
+    /**
+     * 下单接口
+     * 测试正常: POST /order/create?userId=1&amp;productId=1&amp;count=10&amp;money=100
+     * 测试超时: 账户服务加 -Daccount.sleep=true 启动, sleep 20s > Feign 5s 超时 -> 回滚
+     */
+    @PostMapping("/order/create")
+    public CommonResult createOrder(@RequestParam("userId") Long userId,
+                                    @RequestParam("productId") Long productId,
+                                    @RequestParam("count") Integer count,
+                                    @RequestParam("money") BigDecimal money) {
+        Order order = new Order();
+        order.setUserId(userId);
+        order.setProductId(productId);
+        order.setCount(count);
+        order.setMoney(money);
+        orderService.createOrder(order);
+        return CommonResult.success("订单创建成功");
+    }
+}</code></pre>
+</div>
+
+<p>Controller 负责接收 HTTP 请求，组装 <code>Order</code> 对象后调用 Service 层。测试时通过 curl 或 Postman 调用。</p>
+
+<h4>8.3.5 OrderService — @GlobalTransactional 核心（TM）</h4>
+
+<p>文件：<code>code/seata-order-service/src/main/java/com/example/order/service/OrderService.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Slf4j
+@Service
+public class OrderService {
+
+    @Resource
+    private OrderMapper orderMapper;
+    @Resource
+    private StorageFeignService storageFeignService;
+    @Resource
+    private AccountFeignService accountFeignService;
+
+    /**
+     * ★ @GlobalTransactional 开启全局事务
+     * Seata 自动通过 RPC header 将 XID 传播到下游服务
+     */
+    @GlobalTransactional(name = "create-order", rollbackFor = Exception.class)
+    public void createOrder(Order order) {
+        log.info("========== 开始下单, XID: {} ==========", RootContext.getXID());
+
+        // 1. 创建订单 (状态: 0-创建中)
+        order.setStatus(0);
+        orderMapper.createOrder(order);
+
+        // 2. 远程调用: 扣减库存
+        storageFeignService.decreaseStorage(order.getProductId(), order.getCount());
+
+        // 3. 远程调用: 扣减余额
+        accountFeignService.decreaseAccount(order.getUserId(), order.getMoney());
+
+        // 4. 修改订单状态 (0-创建中 -> 1-已完成)
+        orderMapper.updateOrderStatus(order.getUserId(), 1);
+
+        log.info("========== 下单完成 ==========");
+    }
+}</code></pre>
+</div>
+
+<p><strong>说明</strong>：</p>
+<ul>
+<li><code>@GlobalTransactional</code> 是 Seata 的核心注解，标记此方法为全局事务入口（TM 角色）</li>
+<li><code>name</code>：全局事务名称，用于标识和监控</li>
+<li><code>rollbackFor</code>：指定哪些异常触发回滚，建议设为 <code>Exception.class</code></li>
+<li>XID 传播是自动的：Seata 拦截 Feign 调用，将 XID 放入请求头，下游服务自动加入全局事务</li>
+</ul>
+
+<h4>8.3.6 OrderMapper + OrderMapper.xml — 数据访问层</h4>
+
+<p>文件：<code>code/seata-order-service/src/main/java/com/example/order/mapper/OrderMapper.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Mapper
+public interface OrderMapper {
+
+    /** 创建订单 (状态: 0-创建中) */
+    void createOrder(Order order);
+
+    /** 更新订单状态 (0-创建中 -> 1-已完成) */
+    void updateOrderStatus(@Param("userId") Long userId, @Param("status") Integer status);
+}</code></pre>
+</div>
+
+<p>文件：<code>code/seata-order-service/src/main/resources/mapper/OrderMapper.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;mapper namespace="com.example.order.mapper.OrderMapper"&gt;
+
+    &lt;insert id="createOrder" parameterType="com.example.common.entity.Order"
+            useGeneratedKeys="true" keyProperty="id"&gt;
+        INSERT INTO t_order (user_id, product_id, count, money, status)
+        VALUES (#{userId}, #{productId}, #{count}, #{money}, #{status})
+    &lt;/insert&gt;
+
+    &lt;update id="updateOrderStatus"&gt;
+        UPDATE t_order SET status = #{status}
+        WHERE user_id = #{userId} AND status = 0
+    &lt;/update&gt;
+&lt;/mapper&gt;</code></pre>
+</div>
+
+<p><code>createOrder</code> 插入订单记录（状态 0-创建中），<code>updateOrderStatus</code> 在事务最后将状态改为 1-已完成。Seata AT 模式会自动代理数据源，在执行这些 SQL 时记录 undo_log。</p>
+
+<h4>8.3.7 Feign 远程调用（StorageFeignService / AccountFeignService）</h4>
+
+<p>文件：<code>code/seata-order-service/src/main/java/com/example/order/feign/</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@FeignClient(value = "seata-storage-service")  // Nacos 中的服务名
+public interface StorageFeignService {
+
+    @PostMapping("/storage/decrease")
+    CommonResult decreaseStorage(@RequestParam("productId") Long productId,
+                                 @RequestParam("count") Integer count);
+}
+
+@FeignClient(value = "seata-account-service")
+public interface AccountFeignService {
+
+    @PostMapping("/account/decrease")
+    CommonResult decreaseAccount(@RequestParam("userId") Long userId,
+                                 @RequestParam("money") BigDecimal money);
+}</code></pre>
+</div>
+
+<p>Feign 调用时，Seata 的 <code>SeataFeignClient</code> 拦截器自动将当前线程的 XID 通过 HTTP Header（<code>TX_XID</code>）传递给下游服务。下游服务收到请求后，Seata 过滤器提取 XID 绑定到当前线程，使该服务作为 RM 自动加入全局事务。</p>
+
+<h3 id="ch8-storage">8.4 库存服务（seata-storage-service）</h3>
+
+<p>库存服务作为 <strong>RM（资源管理器）</strong> 参与全局事务，业务代码无需任何 Seata 注解。</p>
+
+<h4>8.4.1 pom.xml 依赖</h4>
+
+<p>文件：<code>code/seata-storage-service/pom.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;parent&gt;
+        &lt;groupId&gt;com.example&lt;/groupId&gt;
+        &lt;artifactId&gt;seata-demo&lt;/artifactId&gt;
+        &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;/parent&gt;
+
+    &lt;artifactId&gt;seata-storage-service&lt;/artifactId&gt;
+    &lt;name&gt;seata-storage-service&lt;/name&gt;
+    &lt;description&gt;库存服务 - RM角色, 扣减库存&lt;/description&gt;
+
+    &lt;dependencies&gt;
+        &lt;!-- 公共模块 (CommonResult, Order 实体) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.example&lt;/groupId&gt;
+            &lt;artifactId&gt;seata-common&lt;/artifactId&gt;
+            &lt;version&gt;1.0.0&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- 注意: 不需要显式声明 seata-spring-boot-starter
+             父 pom 的 spring-cloud-starter-alibaba-seata 已包含
+             org.apache.seata:seata-spring-boot-starter:2.5.0 --&gt;
+    &lt;/dependencies&gt;
+&lt;/project&gt;</code></pre>
+</div>
+
+<p>库存服务作为 RM 角色，不需要 OpenFeign（不被其他服务调用也不调用其他服务），只需公共模块依赖。Seata 依赖由父 POM 统一引入。</p>
+
+<h4>8.4.2 application.yml 配置</h4>
+
+<p>文件：<code>code/seata-storage-service/src/main/resources/application.yml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-yaml">server:
+  port: 2002
+
+spring:
+  application:
+    name: seata-storage-service
+  # ========== Nacos 注册中心 ==========
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: public
+        group: SEATA_GROUP
+  # ========== 数据源配置 (库存库) ==========
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/seata_storage?useUnicode=true&amp;characterEncoding=utf-8&amp;useSSL=false&amp;serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+
+# ========== MyBatis 配置 ==========
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.common.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ========== Seata 配置 (与订单服务保持一致) ==========
+seata:
+  enabled: true
+  application-id: ${spring.application.name}
+  tx-service-group: default_tx_group
+  enable-auto-data-source-proxy: true
+  data-source-proxy-mode: AT
+  service:
+    vgroup-mapping:
+      default_tx_group: default
+    grouplist:
+      default: 127.0.0.1:8091
+  registry:
+    type: nacos
+    nacos:
+      application: seata-server
+      server-addr: 127.0.0.1:8848
+      group: SEATA_GROUP
+      namespace: ''
+      cluster: default
+
+logging:
+  level:
+    io.seata: info
+    com.example: debug</code></pre>
+</div>
+
+<p>与订单服务的区别仅在于：端口 <code>2002</code>、服务名 <code>seata-storage-service</code>、数据源指向 <code>seata_storage</code> 库。Seata 配置部分完全相同——所有服务必须使用相同的事务组和集群名。</p>
+
+<h4>8.4.3 启动类（StorageServiceApplication）</h4>
+
+<p>文件：<code>code/seata-storage-service/src/main/java/com/example/storage/StorageServiceApplication.java</code></p>
+
+<pre><code class="language-java">package com.example.storage;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+/**
+ * 库存服务启动类 (RM 角色)
+ */
+@SpringBootApplication
+@EnableDiscoveryClient
+public class StorageServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(StorageServiceApplication.class, args);
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>注解</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>@SpringBootApplication</code></td><td>Spring Boot 核心注解，自动装配 + 组件扫描</td></tr>
+<tr><td><code>@EnableDiscoveryClient</code></td><td>注册到 Nacos，供订单服务通过 Feign 发现并调用</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>库存服务作为 RM（资源管理器），<strong>不需要</strong> <code>@EnableFeignClients</code>（它不调用其他服务，只被调用）。AT 模式下 RM 由 Seata 自动代理数据源生效，启动类无需任何 Seata 注解。</p></blockquote>
+
+<h4>8.4.4 StorageController — 库存扣减接口</h4>
+
+<p>文件：<code>code/seata-storage-service/src/main/java/com/example/storage/controller/StorageController.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@RestController
+public class StorageController {
+
+    @Resource
+    private StorageService storageService;
+
+    @PostMapping("/storage/decrease")
+    public CommonResult decreaseStorage(@RequestParam("productId") Long productId,
+                                        @RequestParam("count") Integer count) {
+        storageService.decreaseStorage(productId, count);
+        return CommonResult.success("扣减库存成功");
+    }
+}</code></pre>
+</div>
+
+<h4>8.4.5 StorageService — RM 角色</h4>
+
+<p>文件：<code>code/seata-storage-service/src/main/java/com/example/storage/service/StorageService.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Slf4j
+@Service
+public class StorageService {
+
+    @Resource
+    private StorageMapper storageMapper;
+
+    public void decreaseStorage(Long productId, Integer count) {
+        log.info("------> 库存服务: 扣减库存, productId={}, count={}", productId, count);
+        storageMapper.decreaseStorage(productId, count);
+        // Seata 自动代理数据源, 在执行 SQL 前后记录 undo_log
+    }
+}</code></pre>
+</div>
+
+<p>AT 模式的优势——RM 端业务代码完全无侵入。Seata 通过 <code>DataSourceProxy</code> 代理 JDBC，在执行 SQL 时自动：</p>
+<ol>
+<li>解析 SQL，确定操作的表和行</li>
+<li>查询前镜像（before image）</li>
+<li>执行业务 SQL</li>
+<li>查询后镜像（after image）</li>
+<li>将镜像信息写入 <code>undo_log</code> 表</li>
+<li>向 TC 注册分支事务并获取全局锁</li>
+</ol>
+
+<h4>8.4.6 StorageMapper + StorageMapper.xml — 数据访问层</h4>
+
+<p>文件：<code>code/seata-storage-service/src/main/java/com/example/storage/mapper/StorageMapper.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Mapper
+public interface StorageMapper {
+
+    /** 扣减库存: used 增加, residue 减少 */
+    void decreaseStorage(@Param("productId") Long productId, @Param("count") Integer count);
+}</code></pre>
+</div>
+
+<p>文件：<code>code/seata-storage-service/src/main/resources/mapper/StorageMapper.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;mapper namespace="com.example.storage.mapper.StorageMapper"&gt;
+
+    &lt;update id="decreaseStorage"&gt;
+        UPDATE t_storage
+        SET used   = used + #{count},
+            residue = residue - #{count}
+        WHERE product_id = #{productId}
+    &lt;/update&gt;
+&lt;/mapper&gt;</code></pre>
+</div>
+
+<h3 id="ch8-account">8.5 账户服务（seata-account-service）</h3>
+
+<p>账户服务作为 <strong>RM</strong> 参与全局事务，同时用于演示超时回滚场景。</p>
+
+<h4>8.5.1 pom.xml 依赖</h4>
+
+<p>文件：<code>code/seata-account-service/pom.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+
+    &lt;parent&gt;
+        &lt;groupId&gt;com.example&lt;/groupId&gt;
+        &lt;artifactId&gt;seata-demo&lt;/artifactId&gt;
+        &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;/parent&gt;
+
+    &lt;artifactId&gt;seata-account-service&lt;/artifactId&gt;
+    &lt;name&gt;seata-account-service&lt;/name&gt;
+    &lt;description&gt;账户服务 - RM角色, 扣减余额, 包含超时回滚演示&lt;/description&gt;
+
+    &lt;dependencies&gt;
+        &lt;!-- 公共模块 (CommonResult, Order 实体) --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;com.example&lt;/groupId&gt;
+            &lt;artifactId&gt;seata-common&lt;/artifactId&gt;
+            &lt;version&gt;1.0.0&lt;/version&gt;
+        &lt;/dependency&gt;
+
+        &lt;!-- 注意: 不需要显式声明 seata-spring-boot-starter
+             父 pom 的 spring-cloud-starter-alibaba-seata 已包含
+             org.apache.seata:seata-spring-boot-starter:2.5.0 --&gt;
+    &lt;/dependencies&gt;
+&lt;/project&gt;</code></pre>
+</div>
+
+<p>账户服务与库存服务的 POM 结构一致，作为 RM 角色只需公共模块依赖。</p>
+
+<h4>8.5.2 application.yml 配置</h4>
+
+<p>文件：<code>code/seata-account-service/src/main/resources/application.yml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">yaml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-yaml">server:
+  port: 2003
+
+spring:
+  application:
+    name: seata-account-service
+  # ========== Nacos 注册中心 ==========
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: public
+        group: SEATA_GROUP
+  # ========== 数据源配置 (账户库) ==========
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/seata_account?useUnicode=true&amp;characterEncoding=utf-8&amp;useSSL=false&amp;serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+
+# ========== MyBatis 配置 ==========
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.common.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# ========== Seata 配置 ==========
+seata:
+  enabled: true
+  application-id: ${spring.application.name}
+  tx-service-group: default_tx_group
+  enable-auto-data-source-proxy: true
+  data-source-proxy-mode: AT
+  service:
+    vgroup-mapping:
+      default_tx_group: default
+    grouplist:
+      default: 127.0.0.1:8091
+  registry:
+    type: nacos
+    nacos:
+      application: seata-server
+      server-addr: 127.0.0.1:8848
+      group: SEATA_GROUP
+      namespace: ''
+      cluster: default
+
+logging:
+  level:
+    io.seata: info
+    com.example: debug</code></pre>
+</div>
+
+<p>与订单服务的区别仅在于：端口 <code>2003</code>、服务名 <code>seata-account-service</code>、数据源指向 <code>seata_account</code> 库。超时回滚通过启动参数 <code>-Daccount.sleep=true</code> 控制（在 Service 中通过 <code>@Value("${account.sleep:false}")</code> 读取）。</p>
+
+<h4>8.5.3 启动类（AccountServiceApplication）</h4>
+
+<p>文件：<code>code/seata-account-service/src/main/java/com/example/account/AccountServiceApplication.java</code></p>
+
+<pre><code class="language-java">package com.example.account;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+/**
+ * 账户服务启动类 (RM 角色)
+ */
+@SpringBootApplication
+@EnableDiscoveryClient
+public class AccountServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(AccountServiceApplication.class, args);
+    }
+}</code></pre>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>注解</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>@SpringBootApplication</code></td><td>Spring Boot 核心注解，自动装配 + 组件扫描</td></tr>
+<tr><td><code>@EnableDiscoveryClient</code></td><td>注册到 Nacos，供订单服务通过 Feign 发现并调用</td></tr>
+</tbody>
+</table>
+</div>
+
+<blockquote><p>账户服务与库存服务一样作为 RM 角色，启动类配置相同。超时回滚通过启动参数 <code>-Daccount.sleep=true</code> 控制，无需在启动类上做额外配置。</p></blockquote>
+
+<h4>8.5.4 AccountController — 账户扣减接口</h4>
+
+<p>文件：<code>code/seata-account-service/src/main/java/com/example/account/controller/AccountController.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@RestController
+public class AccountController {
+
+    @Resource
+    private AccountService accountService;
+
+    @PostMapping("/account/decrease")
+    public CommonResult decreaseAccount(@RequestParam("userId") Long userId,
+                                        @RequestParam("money") BigDecimal money) {
+        accountService.decreaseAccount(userId, money);
+        return CommonResult.success("扣减余额成功");
+    }
+}</code></pre>
+</div>
+
+<h4>8.5.5 AccountService — 超时回滚演示（RM）</h4>
+
+<p>文件：<code>code/seata-account-service/src/main/java/com/example/account/service/AccountService.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Slf4j
+@Service
+public class AccountService {
+
+    @Resource
+    private AccountMapper accountMapper;
+
+    @Value("${account.sleep:false}")
+    private boolean needSleep;
+
+    public void decreaseAccount(Long userId, BigDecimal money) {
+        log.info("------> 账户服务: 扣减余额, userId={}, money={}", userId, money);
+
+        // 模拟超时, 触发全局事务回滚
+        if (needSleep) {
+            log.info("------> 账户服务: 模拟超时, sleep 20s ...");
+            Thread.sleep(20000);
+        }
+
+        accountMapper.decreaseAccount(userId, money);
+    }
+}</code></pre>
+</div>
+
+<p><strong>超时回滚流程</strong>：</p>
+<ol>
+<li>订单服务调用账户服务，账户服务 sleep 20s</li>
+<li>Feign 超时（read-timeout 5s），订单服务收到 <code>ReadTimeoutException</code></li>
+<li><code>@GlobalTransactional</code> 捕获异常，向 TC 发起全局回滚</li>
+<li>TC 通知库存服务 RM 根据 undo_log 回滚库存</li>
+<li>TC 通知订单服务 RM 根据 undo_log 回滚订单</li>
+<li>所有数据恢复到下单前的状态</li>
+</ol>
+
+<h4>8.5.6 AccountMapper + AccountMapper.xml — 数据访问层</h4>
+
+<p>文件：<code>code/seata-account-service/src/main/java/com/example/account/mapper/AccountMapper.java</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">java</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-java">@Mapper
+public interface AccountMapper {
+
+    /** 扣减账户余额: used 增加, residue 减少 */
+    void decreaseAccount(@Param("userId") Long userId, @Param("money") BigDecimal money);
+}</code></pre>
+</div>
+
+<p>文件：<code>code/seata-account-service/src/main/resources/mapper/AccountMapper.xml</code></p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">xml</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-xml">&lt;mapper namespace="com.example.account.mapper.AccountMapper"&gt;
+
+    &lt;update id="decreaseAccount"&gt;
+        UPDATE t_account
+        SET used   = used + #{money},
+            residue = residue - #{money}
+        WHERE user_id = #{userId}
+    &lt;/update&gt;
+&lt;/mapper&gt;</code></pre>
+</div>
+
+<h3 id="ch8-summary">8.6 AT 模式工作原理总结</h3>
+
+<p>整个案例的 AT 模式工作流程：</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>步骤</th><th>角色</th><th>动作</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>TM（OrderService）</td><td><code>@GlobalTransactional</code> 开启全局事务，向 TC 注册获取 XID</td></tr>
+<tr><td>2</td><td>TM</td><td>创建订单，Seata 代理数据源记录 undo_log，向 TC 注册分支事务</td></tr>
+<tr><td>3</td><td>TM → RM</td><td>Feign 调用库存服务，XID 通过 HTTP Header 传播</td></tr>
+<tr><td>4</td><td>RM（StorageService）</td><td>扣减库存，Seata 代理数据源记录 undo_log，向 TC 注册分支事务</td></tr>
+<tr><td>5</td><td>TM → RM</td><td>Feign 调用账户服务，XID 传播</td></tr>
+<tr><td>6</td><td>RM（AccountService）</td><td>扣减余额，Seata 代理数据源记录 undo_log，向 TC 注册分支事务</td></tr>
+<tr><td>7</td><td>TM</td><td>更新订单状态，向 TC 提交全局事务</td></tr>
+<tr><td>8</td><td>TC</td><td>通知所有 RM 提交分支事务，删除 undo_log</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="alert alert-info">
+  <div class="alert-icon">🔑</div>
+  <div class="alert-body">
+    <p><strong>异常回滚流程</strong>：任一步骤失败 → TM 捕获异常 → 向 TC 发起回滚 → TC 通知所有已注册的 RM → RM 根据 undo_log 的前镜像反向补偿数据 → 删除 undo_log。</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ==================== 第九章 ==================== -->
+<h2 id="ch9">九、启动与测试验证</h2>
+
+<h3>9.1 启动顺序</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">text</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>1. MySQL 启动, 执行全部 SQL
+2. Nacos 启动 (sh startup.sh -m standalone)
+3. Seata Server 启动 (sh seata-server.sh)
+   → 验证: Nacos 服务列表出现 seata-server
+4. 启动 seata-storage-service (端口 2002)
+5. 启动 seata-account-service (端口 2003)
+6. 启动 seata-order-service (端口 2001)
+   → 验证: Nacos 服务列表出现 3 个业务服务</code></pre>
+</div>
+
+<h3>9.2 测试正常流程</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-bash"># 下单: 用户1, 产品1, 数量10, 金额100
+curl -X POST "http://localhost:2001/order/create?userId=1&productId=1&count=10&money=100"</code></pre>
+</div>
+
+<p><strong>预期结果</strong>：</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">json</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-json">{"code":200,"message":"订单创建成功","data":null}</code></pre>
+</div>
+
+<p><strong>验证数据</strong>：</p>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">sql</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-sql">-- 订单已创建且状态为1(已完成)
+SELECT * FROM seata_order.t_order;
+-- 库存: used=10, residue=90
+SELECT * FROM seata_storage.t_storage WHERE product_id=1;
+-- 余额: used=100, residue=900
+SELECT * FROM seata_account.t_account WHERE user_id=1;
+-- undo_log 已被清理 (全局事务提交后异步删除)
+SELECT * FROM seata_order.undo_log;
+SELECT * FROM seata_storage.undo_log;
+SELECT * FROM seata_account.undo_log;</code></pre>
+</div>
+
+<h3>9.3 测试超时回滚</h3>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code class="language-bash"># 以超时模式启动账户服务
+java -Daccount.sleep=true -jar seata-account-service.jar
+
+# 或者: 修改 application.yml 添加 account.sleep: true
+
+# 再次下单
+curl -X POST "http://localhost:2001/order/create?userId=1&productId=1&count=10&money=100"</code></pre>
+</div>
+
+<div class="alert alert-danger">
+  <div class="alert-icon">⏱️</div>
+  <div class="alert-body">
+    <p><strong>预期结果</strong>：</p>
+    <p>接口返回 500 错误（Feign 超时），订单服务日志出现全局事务回滚信息。所有数据自动回滚到下单前的状态。</p>
+  </div>
+</div>
+
+<h3>9.4 Seata 控制台验证</h3>
+
+<p>访问 <code>http://localhost:7091</code>（账号 seata/seata）：</p>
+<ul>
+<li><strong>全局事务</strong>：可看到创建和回滚的事务记录</li>
+<li><strong>分支事务</strong>：可看到每个全局事务下的分支事务</li>
+<li><strong>全局锁</strong>：可看到 AT 模式的行锁信息</li>
+</ul>
+
+<hr>
+
+<!-- ==================== 第十章 ==================== -->
+<h2 id="ch10">十、常见问题</h2>
+
+<div class="faq-item">
+  <div class="faq-q" onclick="toggleFaq(this)">Q1: can not connect to services-server</div>
+  <div class="faq-a"><div class="faq-a-inner">
+    <p><strong>原因</strong>：客户端无法连接 Seata Server</p>
+    <p><strong>排查</strong>：</p>
+    <ol>
+    <li>检查 Seata Server 是否已启动并注册到 Nacos</li>
+    <li>检查 Nacos 服务列表是否有 <code>seata-server</code></li>
+    <li>检查 <code>seata.registry.nacos.cluster</code> 是否与 Server 一致（都为 <code>default</code>）</li>
+    <li>检查 <code>seata.registry.nacos.group</code> 是否与 Server 一致（都为 <code>SEATA_GROUP</code>）</li>
+    </ol>
+  </div></div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q" onclick="toggleFaq(this)">Q2: could not find any cluster name in the registry</div>
+  <div class="faq-a"><div class="faq-a-inner">
+    <p><strong>原因</strong>：事务组映射配置错误</p>
+    <p><strong>排查</strong>：</p>
+    <ol>
+    <li>检查客户端 <code>seata.service.vgroup-mapping.default_tx_group</code> 是否为 <code>default</code></li>
+    <li>检查客户端 <code>seata.tx-service-group</code> 是否为 <code>default_tx_group</code></li>
+    <li>检查客户端 <code>seata.registry.nacos.cluster</code> 是否与 Seata Server 一致（都为 <code>default</code>）</li>
+    </ol>
+  </div></div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q" onclick="toggleFaq(this)">Q3: undo_log 表不存在</div>
+  <div class="faq-a"><div class="faq-a-inner">
+    <p><strong>原因</strong>：业务库未创建 undo_log 表</p>
+    <p><strong>解决</strong>：每个参与分布式事务的数据库都必须创建 undo_log 表，执行 <code>sql/undo_log.sql</code>。</p>
+  </div></div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q" onclick="toggleFaq(this)">Q4: 数据源代理未生效</div>
+  <div class="faq-a"><div class="faq-a-inner">
+    <p><strong>原因</strong>：Seata 未代理数据源，AT 模式无法工作</p>
+    <p><strong>排查</strong>：</p>
+    <ol>
+    <li>确认 <code>seata.enable-auto-data-source-proxy: true</code></li>
+    <li>确认 <code>seata.data-source-proxy-mode: AT</code></li>
+    <li>如果使用自定义 DataSource Bean，需要手动创建 <code>DataSourceProxy</code></li>
+    </ol>
+  </div></div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q" onclick="toggleFaq(this)">Q5: Feign 调用超时</div>
+  <div class="faq-a"><div class="faq-a-inner">
+    <p><strong>原因</strong>：OpenFeign 默认 read-timeout 60s，超时回滚测试中 account.sleep=20s 不会触发默认超时</p>
+    <p><strong>解决</strong>：本教程已在订单服务 application.yml 中配置 read-timeout=5s，确保 <code>account.sleep=true</code> 时 20s &gt; 5s 触发超时。如需调整：</p>
+    <div class="code-block" style="margin-top:8px;">
+      <div class="code-header"><span class="code-lang">yaml</span></div>
+<pre><code class="language-yaml">feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000   # 连接超时 5s
+        read-timeout: 30000     # 读取超时 30s</code></pre>
+    </div>
+  </div></div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q" onclick="toggleFaq(this)">Q6: 版本不兼容问题</div>
+  <div class="faq-a"><div class="faq-a-inner">
+    <p><strong>原因</strong>：Spring Boot / Spring Cloud / Spring Cloud Alibaba 版本不匹配</p>
+    <p><strong>解决</strong>：参考本教程第三章的版本兼容组合。本教程采用 Spring Boot 3.5.0 + Spring Cloud 2025.0.0 + Spring Cloud Alibaba 2025.0.0.0 + Seata 2.5.0 + JDK 17，该组合经过官方兼容验证。</p>
+  </div></div>
+</div>
+
+<hr>
+
+<!-- ==================== 附录 ==================== -->
+<h2>附录：文件清单</h2>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>文件路径</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>seata-tutorial.html</code></td><td>本教程 HTML 文档</td></tr>
+<tr><td><code>sql/seata-server.sql</code></td><td>Seata Server 建表 SQL (4张表)</td></tr>
+<tr><td><code>sql/business-db.sql</code></td><td>业务库建表 SQL + 初始数据 + undo_log</td></tr>
+<tr><td><code>sql/undo_log.sql</code></td><td>undo_log 独立建表 SQL</td></tr>
+<tr><td><code>seata-server-config/application.yml</code></td><td>Seata Server 主配置 (2.0+推荐)</td></tr>
+<tr><td><code>code/pom.xml</code></td><td>父工程 POM</td></tr>
+<tr><td><code>code/seata-common/</code></td><td>公共模块 (实体类)</td></tr>
+<tr><td><code>code/seata-order-service/</code></td><td>订单服务 (TM)</td></tr>
+<tr><td><code>code/seata-storage-service/</code></td><td>库存服务 (RM)</td></tr>
+<tr><td><code>code/seata-account-service/</code></td><td>账户服务 (RM)</td></tr>
+</tbody>
+</table>
+</div>
+
+</main>
+
+<!-- ===== 回到顶部 ===== -->
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- ===== Scripts ===== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+// 代码高亮
+hljs.highlightAll();
+
+// 主题切换
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'light' ? '🌙' : '☀️';
+  // 切换 highlight.js 主题
+  const hljsTheme = document.getElementById('hljs-theme');
+  hljsTheme.href = next === 'light'
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css';
+  // 保存偏好
+  localStorage.setItem('seata-tutorial-theme', next);
+}
+// 恢复主题偏好
+(function() {
+  const saved = localStorage.getItem('seata-tutorial-theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('themeBtn').textContent = saved === 'light' ? '🌙' : '☀️';
+    if (saved === 'dark') {
+      document.getElementById('hljs-theme').href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css';
+    }
+  }
+})();
+
+// 代码复制
+function copyCode(btn) {
+  const code = btn.closest('.code-block').querySelector('code');
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// 侧边栏激活状态
+const sections = document.querySelectorAll('h2[id], h3[id], h4[id]');
+const navLinks = document.querySelectorAll('.sidebar nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(sec => {
+    const top = sec.offsetTop - 100;
+    if (window.scrollY >= top) current = sec.id;
+  });
+  navLinks.forEach(link => {
+    link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+  });
+  // 回到顶部按钮
+  document.getElementById('backTop').classList.toggle('show', window.scrollY > 600);
+});
+
+// FAQ 折叠
+function toggleFaq(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+}
+</script>
+</body>
+</html>
